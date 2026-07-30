@@ -1,2 +1,2 @@
 # trade-doctor-backend
-Trading App Backend Logic and AI Signal Generatorক
+Trading App Backend Logic and AI Signal Generator
