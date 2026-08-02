@@ -166,6 +166,14 @@ def get_high_growth_assets():
         trend_confidence = "High" if growth_rate > 35 else ("Medium" if growth_rate > 22 else "Low")
         catalyst = "AI chips surge" if "Semiconductors" in asset["sector"] else "Adoption expansion"
 
+        # UI Design Tokens for pixel-perfect premium dashboards
+        ui_metadata = {
+            "icon_class": "fa-brands fa-bitcoin text-yellow-500" if asset["sector"] == "Crypto" else "fa-solid fa-chart-line text-blue-500",
+            "badge_color": "bg-green-500/10 text-green-400 border border-green-500/20" if sentiment == "Bullish" else "bg-red-500/10 text-red-400 border border-red-500/20",
+            "theme_glow_color": "rgba(34, 197, 94, 0.15)" if sentiment == "Bullish" else "rgba(239, 68, 68, 0.15)",
+            "chart_gradient_stops": ["#22c55e", "#15803d"] if sentiment == "Bullish" else ["#ef4444", "#b91c1c"]
+        }
+
         if is_locked:
             # Mask sensitive values for paywalled records
             asset_info.update({
@@ -174,10 +182,18 @@ def get_high_growth_assets():
                 "sentiment": "[LOCKED]",
                 "trend_confidence": "[LOCKED]",
                 "catalyst": "[LOCKED]",
+                "ui_metadata": {
+                    "icon_class": "fa-solid fa-lock text-slate-500",
+                    "badge_color": "bg-slate-500/10 text-slate-400 border border-slate-500/20",
+                    "theme_glow_color": "rgba(100, 116, 139, 0.1)",
+                    "chart_gradient_stops": ["#64748b", "#475569"]
+                },
                 "premium_gate_overlay": {
                     "text": "Unlock Premium Global & Indian Market Insights — $19.99/month",
                     "live_data_text": "Upgrade to Access Live Data in USD",
-                    "price_usd": 19.99
+                    "price_usd": 19.99,
+                    "blur_style": "backdrop-blur-md bg-slate-950/70 border border-slate-800",
+                    "call_to_action_class": "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-bold px-6 py-3 rounded-lg shadow-lg shadow-amber-500/20 transition-all duration-300"
                 }
             })
         else:
@@ -187,7 +203,8 @@ def get_high_growth_assets():
                 "rsi": int(rsi_val),
                 "sentiment": sentiment,
                 "trend_confidence": trend_confidence,
-                "catalyst": catalyst
+                "catalyst": catalyst,
+                "ui_metadata": ui_metadata
             })
 
         enriched_results.append(asset_info)
