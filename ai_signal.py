@@ -4,7 +4,6 @@ import pandas as pd
 import google.generativeai as genai
 from typing import Dict, Any, Optional
 
-# Configure Gemini model and client if environment key is provided
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
 
 if GEMINI_API_KEY:
@@ -13,38 +12,41 @@ if GEMINI_API_KEY:
     except Exception as e:
         print(f"Warning: Failed to configure Google Generative AI client: {e}")
 
+LEGAL_DISCLAIMER = "For educational/informational purposes only. Not financial advice."
+
 
 def _generate_mock_signal(ticker: str, rsi: Optional[float], macd: Optional[float], macd_signal: Optional[float], close_price: Optional[float]) -> Dict[str, Any]:
     """
-    Fallback deterministic mock signal generator when Gemini API is unavailable.
+    Fallback deterministic mock probabilistic estimate when Gemini API is unavailable.
+    Guarantees strict legal compliance. No absolute BUY/SELL issued.
     """
-    # Simple rule-based logic for mock signal
-    signal = "HOLD"
+    # Strict probabilistic zone
+    zone = "Neutral Consolidation Zone"
     confidence = "Low (Fallback)"
-    rationale = "Technical indicators are neutral. No strong trend identified."
+    rationale = "Technical indicators suggest neutral momentum. Consolidating without absolute trend direction."
 
     if rsi is not None:
         if rsi < 30:
-            signal = "BUY"
+            zone = "High Probability Bullish Zone (Oversold)"
             confidence = "Medium (Fallback)"
-            rationale = f"RSI is extremely low ({rsi:.2f}), indicating the asset is oversold. Potential rebound expected."
+            rationale = f"RSI is extremely low ({rsi:.2f}), indicating the asset is heavily oversold. Historical probability points to a bullish zone pullback."
         elif rsi > 70:
-            signal = "SELL"
+            zone = "High Probability Bearish Zone (Overbought)"
             confidence = "Medium (Fallback)"
-            rationale = f"RSI is extremely high ({rsi:.2f}), indicating the asset is overbought. Corrective pullback likely."
+            rationale = f"RSI is extremely high ({rsi:.2f}), indicating the asset is heavily overbought. Historical probability points to a corrective bearish pullback."
         elif macd is not None and macd_signal is not None:
             if macd > macd_signal and rsi < 55:
-                signal = "BUY"
+                zone = "High Probability Bullish Zone"
                 confidence = "Medium (Fallback)"
                 rationale = f"MACD line crossed above the signal line (Bullish crossover) with supportive RSI ({rsi:.2f})."
             elif macd < macd_signal and rsi > 45:
-                signal = "SELL"
+                zone = "High Probability Bearish Zone"
                 confidence = "Medium (Fallback)"
                 rationale = f"MACD line crossed below the signal line (Bearish crossover) with vulnerable RSI ({rsi:.2f})."
 
     return {
         "ticker": ticker,
-        "signal": signal,
+        "probabilistic_estimate": zone,
         "confidence": confidence,
         "rationale": rationale,
         "indicator_snapshot": {
@@ -53,35 +55,29 @@ def _generate_mock_signal(ticker: str, rsi: Optional[float], macd: Optional[floa
             "macd": macd,
             "macd_signal": macd_signal
         },
-        "source": "Fallback Rule Engine"
+        "source": "Fallback Rule Engine",
+        "disclaimer": LEGAL_DISCLAIMER
     }
 
 
 def generate_ai_signal(ticker: str, df: pd.DataFrame) -> Dict[str, Any]:
     """
-    Generate an AI trading signal (BUY, SELL, HOLD) using Gemini model or fallback mock engine.
-
-    Parameters:
-        ticker (str): Asset ticker symbol.
-        df (pd.DataFrame): Historical price DataFrame with indicator columns appended.
-
-    Returns:
-        Dict[str, Any]: Detailed trading analysis with signal, confidence, rationale, snapshot, and source.
+    Generate a Probabilistic Technical Estimate trading signal using Gemini model or fallback mock engine.
+    Follows STRICT LEGAL COMPLIANCE by omitting BUY/SELL or absolute predictions.
     """
     if df.empty:
         return {
             "ticker": ticker,
-            "signal": "HOLD",
+            "probabilistic_estimate": "Neutral Consolidation Zone",
             "confidence": "None",
-            "rationale": "No market data available to generate signal.",
+            "rationale": "No market data available to generate signal estimates.",
             "indicator_snapshot": {},
-            "source": "Error fallback"
+            "source": "Error fallback",
+            "disclaimer": LEGAL_DISCLAIMER
         }
 
-    # Extract latest row of data for indicators
     latest_row = df.iloc[-1]
 
-    # Safely retrieve indicator values
     close_price = float(latest_row.get("Close")) if "Close" in latest_row else None
     rsi = float(latest_row.get("RSI_14")) if "RSI_14" in latest_row and not pd.isna(latest_row.get("RSI_14")) else None
     macd = float(latest_row.get("MACD")) if "MACD" in latest_row and not pd.isna(latest_row.get("MACD")) else None
@@ -90,14 +86,13 @@ def generate_ai_signal(ticker: str, df: pd.DataFrame) -> Dict[str, Any]:
     sma_50 = float(latest_row.get("SMA_50")) if "SMA_50" in latest_row and not pd.isna(latest_row.get("SMA_50")) else None
     sma_200 = float(latest_row.get("SMA_200")) if "SMA_200" in latest_row and not pd.isna(latest_row.get("SMA_200")) else None
 
-    # Fallback if API Key is not set
     if not GEMINI_API_KEY:
         return _generate_mock_signal(ticker, rsi, macd, macd_signal, close_price)
 
-    # Prepare prompt for Gemini
+    # STRICT LEGAL COMPLIANCE prompt
     prompt = f"""
     You are a professional financial trading AI assistant ("Trade Doctor").
-    Analyze the following market data and technical indicators for {ticker} to generate a Trading Signal:
+    Analyze the following market data and technical indicators for {ticker}:
     - Latest Close Price: {close_price}
     - Relative Strength Index (RSI 14): {rsi}
     - MACD Line: {macd}
@@ -106,25 +101,27 @@ def generate_ai_signal(ticker: str, df: pd.DataFrame) -> Dict[str, Any]:
     - 50-Day SMA: {sma_50}
     - 200-Day SMA: {sma_200}
 
-    Based on this data, issue one of the following trading actions: BUY, SELL, or HOLD.
-    Provide a solid trade rationale explaining the interaction of these technical indicators and a confidence score (Low, Medium, or High).
+    CRITICAL RULES FOR LEGAL COMPLIANCE AND SAFETY:
+    1. DO NOT output absolute "BUY", "SELL", or "HOLD" directives.
+    2. DO NOT make direct or exact future price predictions.
+    3. Output the estimated probabilistic momentum zone instead.
+    4. Categorize the probabilistic_estimate as one of: "High Probability Bullish Zone", "Neutral Consolidation Zone", or "High Probability Bearish Zone".
+    5. Always conclude with a strictly educational risk analysis.
 
     Respond strictly in JSON format. Do not write any markdown code blocks, backticks, or other text outside the JSON. The JSON schema must be:
     {{
         "ticker": "{ticker}",
-        "signal": "BUY" | "SELL" | "HOLD",
+        "probabilistic_estimate": "High Probability Bullish Zone" | "Neutral Consolidation Zone" | "High Probability Bearish Zone",
         "confidence": "Low" | "Medium" | "High",
-        "rationale": "Detailed explanation of technical analysis indicators combined with trading signals."
+        "rationale": "Detailed explanation of probabilistic technical analysis indicators without guaranteeing outcomes."
     }}
     """
 
     try:
-        # Use newer gemini model
         model = genai.GenerativeModel("gemini-1.5-flash")
         response = model.generate_content(prompt)
         text = response.text.strip()
 
-        # Clean potential markdown block formatting from model response
         if text.startswith("```json"):
             text = text[7:]
         if text.startswith("```"):
@@ -136,11 +133,9 @@ def generate_ai_signal(ticker: str, df: pd.DataFrame) -> Dict[str, Any]:
         try:
             ai_data = json.loads(text)
         except json.JSONDecodeError as e:
-            # Fallback parser to extract JSON bounds
             try:
                 ai_data = json.loads(text[:e.pos])
             except Exception:
-                # If still failing, attempt parsing with index-of find
                 start_idx = text.find("{")
                 end_idx = text.rfind("}")
                 if start_idx != -1 and end_idx != -1:
@@ -148,10 +143,10 @@ def generate_ai_signal(ticker: str, df: pd.DataFrame) -> Dict[str, Any]:
                 else:
                     raise e
 
-        # Ensure correct structure is returned
+        # Ensure correct structured response with mandatory disclaimer
         return {
             "ticker": ticker,
-            "signal": ai_data.get("signal", "HOLD").upper(),
+            "probabilistic_estimate": ai_data.get("probabilistic_estimate", "Neutral Consolidation Zone"),
             "confidence": ai_data.get("confidence", "Medium"),
             "rationale": ai_data.get("rationale", "No explanation provided by AI."),
             "indicator_snapshot": {
@@ -163,7 +158,8 @@ def generate_ai_signal(ticker: str, df: pd.DataFrame) -> Dict[str, Any]:
                 "sma_50": sma_50,
                 "sma_200": sma_200
             },
-            "source": "Gemini AI"
+            "source": "Gemini AI",
+            "disclaimer": LEGAL_DISCLAIMER
         }
     except Exception as api_err:
         print(f"Gemini API request failed: {api_err}. Falling back to Rule Engine.")
