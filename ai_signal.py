@@ -1,5 +1,6 @@
 import os
 import json
+import base64
 import pandas as pd
 import google.generativeai as genai
 from typing import Dict, Any, Optional
@@ -20,7 +21,6 @@ def _generate_mock_signal(ticker: str, rsi: Optional[float], macd: Optional[floa
     Fallback deterministic mock probabilistic estimate when Gemini API is unavailable.
     Guarantees strict legal compliance. No absolute BUY/SELL issued.
     """
-    # Strict probabilistic zone
     zone = "Neutral Consolidation Zone"
     confidence = "Low (Fallback)"
     rationale = "Technical indicators suggest neutral momentum. Consolidating without absolute trend direction."
@@ -89,7 +89,6 @@ def generate_ai_signal(ticker: str, df: pd.DataFrame) -> Dict[str, Any]:
     if not GEMINI_API_KEY:
         return _generate_mock_signal(ticker, rsi, macd, macd_signal, close_price)
 
-    # STRICT LEGAL COMPLIANCE prompt
     prompt = f"""
     You are a professional financial trading AI assistant ("Trade Doctor").
     Analyze the following market data and technical indicators for {ticker}:
@@ -143,7 +142,6 @@ def generate_ai_signal(ticker: str, df: pd.DataFrame) -> Dict[str, Any]:
                 else:
                     raise e
 
-        # Ensure correct structured response with mandatory disclaimer
         return {
             "ticker": ticker,
             "probabilistic_estimate": ai_data.get("probabilistic_estimate", "Neutral Consolidation Zone"),
@@ -166,3 +164,81 @@ def generate_ai_signal(ticker: str, df: pd.DataFrame) -> Dict[str, Any]:
         fallback_res = _generate_mock_signal(ticker, rsi, macd, macd_signal, close_price)
         fallback_res["error"] = str(api_err)
         return fallback_res
+
+
+def analyze_chart_image(base64_image_data: str) -> Dict[str, Any]:
+    """
+    Accepts base64-encoded screenshot of a candlestick chart, analyzes trade entry mistakes,
+    and identifies where "it seems appropriate" to take the trade, strictly without guaranteeing outcomes.
+    Follows absolute legal safety guidelines.
+    """
+    if not GEMINI_API_KEY:
+        # Strict deterministic fallback response
+        return {
+            "is_valid_chart": True,
+            "identified_mistake": "Entering trade late into a strong parabolic candle after a support breakout.",
+            "appropriate_entry_zone": "It seems appropriate to look for entry signals near the established Support Line or upon a consolidated pullback rather than chasing a rapid candle breakout.",
+            "educational_analysis": "Chasing breakout candles often results in buying near local highs, exposing the capital to severe immediate drawdowns. Review candle closes and wait for consolidation.",
+            "disclaimer": LEGAL_DISCLAIMER,
+            "source": "Fallback Visual Analysis Engine"
+        }
+
+    try:
+        # Decode the image
+        img_bytes = base64.b64decode(base64_image_data)
+        image_part = {
+            "mime_type": "image/png",
+            "data": img_bytes
+        }
+
+        prompt = """
+        You are an elite educational trading coach ("Trade Doctor").
+        Analyze this screenshot of a financial trading chart.
+        The user wants to identify their trading entry mistake and find a more logical zone.
+
+        CRITICAL COMPLIANCE AND SAFETY RULES:
+        1. DO NOT use absolute statements like "You must enter here" or "This was a perfect entry."
+        2. Instead, use soft, educational language such as: "It seems appropriate to initiate entry near...", "There is an increased probability of support near...", "A logical area to monitor would be...".
+        3. Explain any clear visual mistakes (e.g. chasing massive candles, entering directly into major resistance zones, buying into overbought indicators).
+        4. Focus heavily on candlestick structures, support/resistance alignments, and indicator clues.
+
+        Output strictly a JSON object with this schema:
+        {
+            "is_valid_chart": true,
+            "identified_mistake": "Description of the user's apparent entry mistake or trade location relative to candles.",
+            "appropriate_entry_zone": "A soft suggestion of where it seems appropriate to have taken or monitored the trade.",
+            "educational_analysis": "A detailed educational breakdown of candle boundaries, wick rejections, and indicator signals present in the chart."
+        }
+        """
+
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        response = model.generate_content([image_part, prompt])
+        text = response.text.strip()
+
+        if text.startswith("```json"):
+            text = text[7:]
+        if text.startswith("```"):
+            text = text[3:]
+        if text.endswith("```"):
+            text = text[:-3]
+        text = text.strip()
+
+        ai_data = json.loads(text)
+        return {
+            "is_valid_chart": ai_data.get("is_valid_chart", True),
+            "identified_mistake": ai_data.get("identified_mistake", "Chasing late-stage breakout momentum."),
+            "appropriate_entry_zone": ai_data.get("appropriate_entry_zone", "It seems appropriate to consider entries near support structures rather than chasing wicks."),
+            "educational_analysis": ai_data.get("educational_analysis", "Review candle configurations and wait for confirmed closes before acting."),
+            "disclaimer": LEGAL_DISCLAIMER,
+            "source": "Gemini Multimodal Analysis"
+        }
+    except Exception as e:
+        # Fallback in case of exceptions
+        return {
+            "is_valid_chart": True,
+            "identified_mistake": f"Chasing momentum wicks. Analysis limited due to visual parser: {str(e)}",
+            "appropriate_entry_zone": "It seems appropriate to wait for pullbacks to historical support levels to manage downside risk.",
+            "educational_analysis": "Look for candlestick validation close to moving averages. This ensures tighter stop-losses and higher win ratios.",
+            "disclaimer": LEGAL_DISCLAIMER,
+            "source": "Fallback Visual Analysis Engine"
+        }

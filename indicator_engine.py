@@ -1,10 +1,11 @@
 import pandas as pd
 import numpy as np
+from typing import List, Dict, Any
 
 
 def calculate_sma(df: pd.DataFrame, column: str = "Close", period: int = 20) -> pd.Series:
     """
-    Calculate Simple Moving Average (SMA) with fallback for inputs with fewer rows.
+    Calculate Simple Moving Average (SMA) strictly aligned with candle timestamps.
     """
     if df.empty or len(df) < period:
         return pd.Series([np.nan] * len(df), index=df.index, dtype=float)
@@ -13,7 +14,7 @@ def calculate_sma(df: pd.DataFrame, column: str = "Close", period: int = 20) -> 
 
 def calculate_ema(df: pd.DataFrame, column: str = "Close", period: int = 20) -> pd.Series:
     """
-    Calculate Exponential Moving Average (EMA) with fallback for inputs with fewer rows.
+    Calculate Exponential Moving Average (EMA) strictly aligned with candle timestamps.
     """
     if df.empty or len(df) < period:
         return pd.Series([np.nan] * len(df), index=df.index, dtype=float)
@@ -22,7 +23,7 @@ def calculate_ema(df: pd.DataFrame, column: str = "Close", period: int = 20) -> 
 
 def calculate_rsi(df: pd.DataFrame, column: str = "Close", period: int = 14) -> pd.Series:
     """
-    Calculate Relative Strength Index (RSI) with safety checks.
+    Calculate Relative Strength Index (RSI) strictly aligned with candle boundaries.
     """
     if df.empty or len(df) < period + 1:
         return pd.Series([np.nan] * len(df), index=df.index, dtype=float)
@@ -49,7 +50,7 @@ def calculate_rsi(df: pd.DataFrame, column: str = "Close", period: int = 14) -> 
 
 def calculate_macd(df: pd.DataFrame, column: str = "Close", fast_period: int = 12, slow_period: int = 26, signal_period: int = 9) -> pd.DataFrame:
     """
-    Calculate Moving Average Convergence Divergence (MACD) with safety checks.
+    Calculate MACD strictly aligned with candle records to prevent offsets.
     """
     if df.empty or len(df) < slow_period:
         empty_series = pd.Series([np.nan] * len(df), index=df.index, dtype=float)
@@ -75,7 +76,7 @@ def calculate_macd(df: pd.DataFrame, column: str = "Close", fast_period: int = 1
 
 def calculate_atr(df: pd.DataFrame, period: int = 14) -> pd.Series:
     """
-    Calculate Average True Range (ATR) for risk/reward estimations.
+    Calculate Average True Range (ATR) strictly aligned with high/low bounds of the candles.
     """
     if df.empty or len(df) < period + 1:
         return pd.Series([np.nan] * len(df), index=df.index, dtype=float)
@@ -95,11 +96,11 @@ def calculate_atr(df: pd.DataFrame, period: int = 14) -> pd.Series:
 
 def calculate_reversal_probability(df: pd.DataFrame) -> float:
     """
-    Calculate Oversold/Overbought Divergence and Trend Reversal Probability Index (0% to 100%).
-    This calculations does not guarantee outcomes, acting strictly as a probabilistic technical estimator.
+    Calculate Oversold/Overbought Divergence and Reversal Probability Index.
+    Does not guarantee outcomes; serves as a technical probabilistic tool.
     """
     if df.empty or "Close" not in df.columns:
-        return 50.0 # Neutral
+        return 50.0
 
     rsi_series = calculate_rsi(df)
     if rsi_series.empty or pd.isna(rsi_series.iloc[-1]):
@@ -107,24 +108,19 @@ def calculate_reversal_probability(df: pd.DataFrame) -> float:
 
     latest_rsi = rsi_series.iloc[-1]
 
-    # Simple probabilistic calculation:
-    # High reversal probability if RSI is extremely overbought (> 75) or oversold (< 25)
     if latest_rsi < 30:
-        # Oversold -> probability of upward reversal increases as RSI gets lower
         prob = 50.0 + (30.0 - latest_rsi) * 2.0
     elif latest_rsi > 70:
-        # Overbought -> probability of downward reversal increases as RSI gets higher
         prob = 50.0 + (latest_rsi - 70.0) * 2.0
     else:
-        prob = 30.0 + abs(latest_rsi - 50.0) * 0.5 # lower base prob around neutral 50
+        prob = 30.0 + abs(latest_rsi - 50.0) * 0.5
 
     return float(np.clip(prob, 0.0, 95.0))
 
 
 def estimate_risk_reward_zones(df: pd.DataFrame) -> dict:
     """
-    Estimate dynamic Support and Resistance zones using Average True Range (ATR)
-    without guaranteeing absolute outcomes.
+    Estimate Support and Resistance zones strictly relative to Candle high, low, and ATR.
     """
     if df.empty:
         return {"support_zone": None, "resistance_zone": None, "stop_loss_zone": None, "atr": None}
@@ -134,8 +130,7 @@ def estimate_risk_reward_zones(df: pd.DataFrame) -> dict:
     latest_atr = atr_series.iloc[-1] if not atr_series.empty else None
 
     if pd.isna(latest_atr) or latest_atr is None:
-        # Fallback if ATR is not calculated yet
-        latest_atr = latest_close * 0.02 # 2% fallback ATR
+        latest_atr = latest_close * 0.02
 
     support_zone = latest_close - (1.5 * latest_atr)
     resistance_zone = latest_close + (1.5 * latest_atr)
@@ -149,6 +144,88 @@ def estimate_risk_reward_zones(df: pd.DataFrame) -> dict:
     }
 
 
+def detect_gaps_and_trends(df: pd.DataFrame) -> Dict[str, Any]:
+    """
+    Scan historical series to identify:
+    1. Market gaps (price gap-up / gap-down between previous close and current open).
+    2. Major support/resistance breakouts.
+    3. Macro trend signals.
+    """
+    if len(df) < 5:
+        return {
+            "recent_gaps": [],
+            "macro_trend": "Neutral",
+            "breakout_detected": False,
+            "breakout_direction": None
+        }
+
+    # Clean and align candles
+    df_clean = df.copy()
+
+    # 1. Detect Recent Gaps (past 5 periods)
+    recent_gaps = []
+    for i in range(len(df_clean) - 5, len(df_clean)):
+        if i <= 0:
+            continue
+        prev_close = float(df_clean["Close"].iloc[i - 1])
+        curr_open = float(df_clean["Open"].iloc[i])
+
+        # Calculate gap %
+        gap_pct = ((curr_open - prev_close) / prev_close) * 100.0
+        if abs(gap_pct) >= 0.5: # 0.5% gap threshold
+            gap_type = "Gap Up" if gap_pct > 0 else "Gap Down"
+            recent_gaps.append({
+                "index_position": i,
+                "gap_type": gap_type,
+                "gap_percentage": float(f"{gap_pct:.2f}"),
+                "previous_close": prev_close,
+                "current_open": curr_open
+            })
+
+    # 2. Breakout Detector
+    # Check if latest Close broke above resistance (e.g., rolling high of past 20 candles)
+    latest_close = float(df_clean["Close"].iloc[-1])
+    latest_high = float(df_clean["High"].iloc[-1])
+    latest_low = float(df_clean["Low"].iloc[-1])
+
+    # Use rolling 20 period excluding latest row
+    rolling_subset = df_clean.iloc[-21:-1]
+    breakout_detected = False
+    breakout_direction = None
+
+    if len(rolling_subset) >= 10:
+        resistance_line = float(rolling_subset["High"].max())
+        support_line = float(rolling_subset["Low"].min())
+
+        if latest_close > resistance_line:
+            breakout_detected = True
+            breakout_direction = "Bullish Breakout (Resistance Crossed)"
+        elif latest_close < support_line:
+            breakout_detected = True
+            breakout_direction = "Bearish Breakout (Support Violated)"
+
+    # 3. Macro Trend Calculation
+    # Determine trend via Simple Moving Average slope
+    sma_20 = calculate_sma(df_clean, period=20)
+    if not sma_20.empty and not pd.isna(sma_20.iloc[-1]) and not pd.isna(sma_20.iloc[-5]):
+        slope = sma_20.iloc[-1] - sma_20.iloc[-5]
+        if slope > 0.05 * sma_20.iloc[-1] / 100.0:
+            macro_trend = "Bullish Uptrend"
+        elif slope < -0.05 * sma_20.iloc[-1] / 100.0:
+            macro_trend = "Bearish Downtrend"
+        else:
+            macro_trend = "Sideways / Consolidation"
+    else:
+        macro_trend = "Insufficient Data"
+
+    return {
+        "recent_gaps": recent_gaps,
+        "macro_trend": macro_trend,
+        "breakout_detected": breakout_detected,
+        "breakout_direction": breakout_direction
+    }
+
+
 def calculate_position_sizing(account_size: float, risk_percentage: float, entry_price: float, stop_loss_price: float) -> dict:
     """
     Standard professional Capital Sizing Calculator.
@@ -157,7 +234,6 @@ def calculate_position_sizing(account_size: float, risk_percentage: float, entry
     if account_size <= 0 or risk_percentage <= 0 or entry_price <= 0 or stop_loss_price <= 0:
         return {"units": 0, "total_capital_at_risk": 0.0, "position_value": 0.0}
 
-    # Ensure risk percent is as decimal (e.g. 2% -> 0.02)
     if risk_percentage > 1.0:
         risk_decimal = risk_percentage / 100.0
     else:

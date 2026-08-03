@@ -9,9 +9,10 @@ from indicator_engine import (
     append_all_indicators,
     estimate_risk_reward_zones,
     calculate_reversal_probability,
-    calculate_position_sizing
+    calculate_position_sizing,
+    detect_gaps_and_trends
 )
-from ai_signal import generate_ai_signal, LEGAL_DISCLAIMER
+from ai_signal import generate_ai_signal, analyze_chart_image, LEGAL_DISCLAIMER
 
 app = Flask(__name__)
 CORS(app)
@@ -41,7 +42,7 @@ def health_check():
     return jsonify({
         "status": "healthy",
         "app": "Trade Doctor Backend API",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "disclaimer": LEGAL_DISCLAIMER
     }), 200
 
@@ -65,11 +66,9 @@ def get_market_data():
 
     df_with_indicators = append_all_indicators(df)
 
-    # Estimate Support/Resistance Risk Reward Zones
     risk_reward = estimate_risk_reward_zones(df)
     reversal_probability = calculate_reversal_probability(df)
 
-    # Format dataframe index and records
     df_with_indicators = df_with_indicators.reset_index()
     if "Date" in df_with_indicators.columns:
         df_with_indicators["Date"] = df_with_indicators["Date"].astype(str)
@@ -124,31 +123,23 @@ def get_ai_signal():
 def get_high_growth_assets():
     """
     List high-growth and momentum assets across Global and Indian markets.
-    Implements a strict Premium Paywall / Access Gate:
-    - Tease/preview only the top 2 assets (e.g. index 0 and 1).
-    - Remaining assets are blurred/locked with details masked and lock overlays.
+    Implements a strict Premium Paywall / Access Gate.
     """
-    region = request.args.get("region", "all").strip().lower() # 'all', 'global', 'india'
-    sector = request.args.get("sector", "all").strip().lower() # 'all', 'tech', 'crypto', etc.
+    region = request.args.get("region", "all").strip().lower()
+    sector = request.args.get("sector", "all").strip().lower()
 
-    # Filter listed assets
     filtered_assets = []
     for asset in HIGH_GROWTH_ASSETS:
-        # Region Filter
         if region != "all" and asset["market"].lower() != region:
             continue
-        # Sector Filter
         if sector != "all" and sector not in asset["sector"].lower():
             continue
         filtered_assets.append(asset)
 
-    # Compile enriched results with mock dynamic momentum & trend confidence
     enriched_results = []
     for index, asset in enumerate(filtered_assets):
-        # Top 2 assets are Unlocked, remainder are locked
         is_locked = index >= 2
 
-        # Base asset data
         asset_info = {
             "ticker": asset["ticker"],
             "name": asset["name"],
@@ -157,8 +148,6 @@ def get_high_growth_assets():
             "is_locked": is_locked
         }
 
-        # Deterministic dummy calculation values for demo/out-of-the-box UI
-        # Dynamic mockup of Growth momentum and confidence
         seed = sum(ord(c) for c in asset["ticker"])
         growth_rate = 15.0 + (seed % 40) + (seed % 10) / 10.0
         rsi_val = 30 + (seed % 50)
@@ -166,7 +155,6 @@ def get_high_growth_assets():
         trend_confidence = "High" if growth_rate > 35 else ("Medium" if growth_rate > 22 else "Low")
         catalyst = "AI chips surge" if "Semiconductors" in asset["sector"] else "Adoption expansion"
 
-        # UI Design Tokens for pixel-perfect premium dashboards
         ui_metadata = {
             "icon_class": "fa-brands fa-bitcoin text-yellow-500" if asset["sector"] == "Crypto" else "fa-solid fa-chart-line text-blue-500",
             "badge_color": "bg-green-500/10 text-green-400 border border-green-500/20" if sentiment == "Bullish" else "bg-red-500/10 text-red-400 border border-red-500/20",
@@ -175,7 +163,6 @@ def get_high_growth_assets():
         }
 
         if is_locked:
-            # Mask sensitive values for paywalled records
             asset_info.update({
                 "growth_rate_pct": None,
                 "rsi": None,
@@ -197,7 +184,6 @@ def get_high_growth_assets():
                 }
             })
         else:
-            # Fully visible preview/teaser
             asset_info.update({
                 "growth_rate_pct": float(f"{growth_rate:.1f}"),
                 "rsi": int(rsi_val),
@@ -241,6 +227,51 @@ def get_position_size():
     sizing["disclaimer"] = LEGAL_DISCLAIMER
 
     return jsonify(sizing), 200
+
+
+@app.route("/api/analyze-chart", methods=["POST"])
+def post_analyze_chart():
+    """
+    Accepts screenshot chart uploads in base64 string encoding,
+    analyzes visual entry mistakes, and outputs educational alternatives.
+    """
+    req_data = request.get_json() or {}
+    base64_image = req_data.get("image_base64", "").strip()
+
+    if not base64_image:
+        return jsonify({
+            "error": "Missing parameter: 'image_base64' is required.",
+            "disclaimer": LEGAL_DISCLAIMER
+        }), 400
+
+    # Execute vision analytics model
+    analysis = analyze_chart_image(base64_image)
+    analysis = _clean_nans_and_inf(analysis)
+
+    return jsonify(analysis), 200
+
+
+@app.route("/api/market-gaps-trends", methods=["GET"])
+def get_market_gaps_trends():
+    """
+    Calculate and report gaps, resistance breakouts, and macro trend patterns
+    for a given asset to feed premium UI streams.
+    """
+    ticker = request.args.get("ticker", "AAPL").upper().strip()
+
+    df = fetch_historical_data(ticker, period="3mo", interval="1d")
+    if df.empty:
+        return jsonify({
+            "error": f"Failed to retrieve data to calculate gaps & trends for: {ticker}",
+            "disclaimer": LEGAL_DISCLAIMER
+        }), 404
+
+    gaps_trends = detect_gaps_and_trends(df)
+    gaps_trends = _clean_nans_and_inf(gaps_trends)
+    gaps_trends["ticker"] = ticker
+    gaps_trends["disclaimer"] = LEGAL_DISCLAIMER
+
+    return jsonify(gaps_trends), 200
 
 
 if __name__ == "__main__":

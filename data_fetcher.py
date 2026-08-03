@@ -2,10 +2,9 @@ import yfinance as yf
 import pandas as pd
 from typing import Optional, Dict, Any, List
 
-
-# Strict 55 High-Growth Assets Categorized
+# Strict 55 High-Growth Assets Categorized across Global (US/Crypto) and Indian markets
 HIGH_GROWTH_ASSETS = [
-    # ---- GLOBAL STOCKS (20) ----
+    # ---- WALL STREET & GLOBAL TECH GIANTS (20) ----
     {"ticker": "AAPL", "name": "Apple Inc.", "market": "Global", "sector": "Tech"},
     {"ticker": "MSFT", "name": "Microsoft Corp.", "market": "Global", "sector": "Tech"},
     {"ticker": "GOOGL", "name": "Alphabet Inc.", "market": "Global", "sector": "Tech"},
@@ -17,17 +16,17 @@ HIGH_GROWTH_ASSETS = [
     {"ticker": "AMD", "name": "Advanced Micro Devices", "market": "Global", "sector": "Semiconductors"},
     {"ticker": "AVGO", "name": "Broadcom Inc.", "market": "Global", "sector": "Semiconductors"},
     {"ticker": "QCOM", "name": "Qualcomm Inc.", "market": "Global", "sector": "Semiconductors"},
-    {"ticker": "INTC", "name": "Intel Corp.", "market": "Global", "sector": "Semiconductors"},
+    {"ticker": "SMCI", "name": "Super Micro Computer", "market": "Global", "sector": "Tech / Hardware"},
     {"ticker": "ASML", "name": "ASML Holding", "market": "Global", "sector": "Semiconductors"},
-    {"ticker": "MS", "name": "Morgan Stanley", "market": "Global", "sector": "Finance"},
-    {"ticker": "GS", "name": "Goldman Sachs", "market": "Global", "sector": "Finance"},
     {"ticker": "JPM", "name": "JPMorgan Chase & Co.", "market": "Global", "sector": "Finance"},
+    {"ticker": "GS", "name": "Goldman Sachs Group", "market": "Global", "sector": "Finance"},
+    {"ticker": "BAC", "name": "Bank of America Corp.", "market": "Global", "sector": "Finance"},
     {"ticker": "V", "name": "Visa Inc.", "market": "Global", "sector": "Finance / Fintech"},
     {"ticker": "MA", "name": "Mastercard Inc.", "market": "Global", "sector": "Finance / Fintech"},
     {"ticker": "COIN", "name": "Coinbase Global", "market": "Global", "sector": "Fintech / Crypto"},
     {"ticker": "PYPL", "name": "PayPal Holdings", "market": "Global", "sector": "Fintech"},
 
-    # ---- GLOBAL CRYPTO (10) ----
+    # ---- GLOBAL CRYPTO ASSETS (10) ----
     {"ticker": "BTC-USD", "name": "Bitcoin", "market": "Global", "sector": "Crypto"},
     {"ticker": "ETH-USD", "name": "Ethereum", "market": "Global", "sector": "Crypto"},
     {"ticker": "SOL-USD", "name": "Solana", "market": "Global", "sector": "Crypto"},
@@ -39,8 +38,8 @@ HIGH_GROWTH_ASSETS = [
     {"ticker": "BNB-USD", "name": "Binance Coin", "market": "Global", "sector": "Crypto"},
     {"ticker": "MATIC-USD", "name": "Polygon", "market": "Global", "sector": "Crypto"},
 
-    # ---- INDIAN STOCKS (NSE/BSE) (25) ----
-    {"ticker": "RELIANCE.NS", "name": "Reliance Industries", "market": "India", "sector": "Energy / Retail"},
+    # ---- INDIAN BLUE-CHIP & HIGH-GROWTH EQUITIES (25) ----
+    {"ticker": "RELIANCE.NS", "name": "Reliance Industries Ltd.", "market": "India", "sector": "Energy / Retail"},
     {"ticker": "TCS.NS", "name": "Tata Consultancy Services", "market": "India", "sector": "Tech / IT"},
     {"ticker": "INFY.NS", "name": "Infosys Ltd.", "market": "India", "sector": "Tech / IT"},
     {"ticker": "HDFCBANK.NS", "name": "HDFC Bank Ltd.", "market": "India", "sector": "Finance / Banking"},
@@ -56,7 +55,7 @@ HIGH_GROWTH_ASSETS = [
     {"ticker": "ADANIENT.NS", "name": "Adani Enterprises Ltd.", "market": "India", "sector": "Infrastructure"},
     {"ticker": "SUNPHARMA.NS", "name": "Sun Pharmaceutical Industries", "market": "India", "sector": "Health / Pharma"},
     {"ticker": "WIPRO.NS", "name": "Wipro Ltd.", "market": "India", "sector": "Tech / IT"},
-    {"ticker": "POWERGRID.NS", "name": "Power Grid Corporation", "market": "India", "sector": "Energy / Power"},
+    {"ticker": "POWERGRID.NS", "name": "Power Grid Corp.", "market": "India", "sector": "Energy / Power"},
     {"ticker": "NTPC.NS", "name": "NTPC Ltd.", "market": "India", "sector": "Energy / Power"},
     {"ticker": "COALINDIA.NS", "name": "Coal India Ltd.", "market": "India", "sector": "Energy / Mining"},
     {"ticker": "ONGC.NS", "name": "Oil & Natural Gas Corp.", "market": "India", "sector": "Energy / Oil & Gas"},
@@ -77,7 +76,6 @@ def fetch_historical_data(ticker: str, period: str = "1mo", interval: str = "1d"
         stock = yf.Ticker(ticker)
         df = stock.history(period=period, interval=interval)
         if df.empty and period != "1mo":
-            # Attempt a fallback to 1mo period
             df = stock.history(period="1mo", interval="1d")
         return df
     except Exception as e:

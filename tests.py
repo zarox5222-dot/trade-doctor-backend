@@ -64,6 +64,12 @@ class TestTradeDoctorBackend(unittest.TestCase):
         self.assertIn("stop_loss_zone", zones)
         self.assertIsNotNone(zones["support_zone"])
 
+    def test_detect_gaps_and_trends_calculation(self):
+        results = indicator_engine.detect_gaps_and_trends(self.mock_df)
+        self.assertIn("recent_gaps", results)
+        self.assertIn("macro_trend", results)
+        self.assertIn("breakout_detected", results)
+
     def test_position_sizing(self):
         sizing = indicator_engine.calculate_position_sizing(10000, 2, 100, 95)
         self.assertEqual(sizing["units"], 40)
@@ -100,12 +106,18 @@ class TestTradeDoctorBackend(unittest.TestCase):
         self.assertEqual(details["current_price"], 150.0)
 
     def test_ai_signal_fallback_legal_compliance(self):
-        # Strict mock fallback signal test without BUY/SELL
         signal_data = ai_signal._generate_mock_signal("AAPL", rsi=25.0, macd=0.0, macd_signal=0.0, close_price=100.0)
         self.assertNotEqual(signal_data["probabilistic_estimate"], "BUY")
         self.assertNotEqual(signal_data["probabilistic_estimate"], "SELL")
         self.assertIn("disclaimer", signal_data)
         self.assertEqual(signal_data["disclaimer"], ai_signal.LEGAL_DISCLAIMER)
+
+    def test_analyze_chart_image_api_fallback_compliance(self):
+        analysis = ai_signal.analyze_chart_image("dW5pdHRlc3Q=")
+        self.assertTrue(analysis["is_valid_chart"])
+        self.assertIn("breakout", analysis["identified_mistake"].lower())
+        self.assertIn("it seems appropriate", analysis["appropriate_entry_zone"].lower())
+        self.assertIn("disclaimer", analysis)
 
     @patch("google.generativeai.GenerativeModel")
     @patch("ai_signal.GEMINI_API_KEY", "mocked_key")
@@ -170,14 +182,12 @@ class TestTradeDoctorBackend(unittest.TestCase):
         self.assertIn("assets", data)
         self.assertEqual(data["count_total"], 55)
 
-        # Test premium preview / lock overlays
         assets = data["assets"]
-        # Top 2 are unlocked
         self.assertFalse(assets[0]["is_locked"])
         self.assertFalse(assets[1]["is_locked"])
         self.assertIsNotNone(assets[0]["rsi"])
+        self.assertIn("ui_metadata", assets[0])
 
-        # Rest are locked and masked
         self.assertTrue(assets[2]["is_locked"])
         self.assertIsNone(assets[2]["rsi"])
         self.assertEqual(assets[2]["sentiment"], "[LOCKED]")
@@ -197,6 +207,31 @@ class TestTradeDoctorBackend(unittest.TestCase):
         data = json.loads(response.data.decode("utf-8"))
         self.assertEqual(data["units"], 30)
         self.assertEqual(data["total_capital_at_risk"], 300.0)
+
+    def test_post_analyze_chart_endpoint_success(self):
+        client = app.app.test_client()
+        payload = {
+            "image_base64": "dW5pdHRlc3Q="
+        }
+        response = client.post("/api/analyze-chart", json=payload)
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data.decode("utf-8"))
+        self.assertTrue(data["is_valid_chart"])
+        self.assertIn("breakout", data["identified_mistake"].lower())
+        self.assertIn("it seems appropriate", data["appropriate_entry_zone"].lower())
+        self.assertEqual(data["disclaimer"], ai_signal.LEGAL_DISCLAIMER)
+
+    @patch("app.fetch_historical_data")
+    def test_get_market_gaps_trends_endpoint(self, mock_history):
+        mock_history.return_value = self.mock_df
+        client = app.app.test_client()
+        response = client.get("/api/market-gaps-trends?ticker=AAPL")
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data.decode("utf-8"))
+        self.assertEqual(data["ticker"], "AAPL")
+        self.assertIn("recent_gaps", data)
+        self.assertIn("macro_trend", data)
+        self.assertIn("breakout_detected", data)
 
 
 if __name__ == "__main__":
