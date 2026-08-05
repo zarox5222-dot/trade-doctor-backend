@@ -214,7 +214,7 @@ class TestTradeDoctorBackend(unittest.TestCase):
         self.assertIsNone(assets[2]["rsi"])
         self.assertEqual(assets[2]["sentiment"], "[LOCKED]")
         self.assertIn("premium_gate_overlay", assets[2])
-        self.assertEqual(assets[2]["premium_gate_overlay"]["price_usd"], 19.99)
+        self.assertEqual(assets[2]["premium_gate_overlay"]["price_usd"], 29.99)
 
     def test_position_sizing_endpoint(self):
         client = app.app.test_client()
@@ -269,7 +269,7 @@ class TestTradeDoctorBackend(unittest.TestCase):
 
     def test_get_smart_money_flow_premium(self):
         client = app.app.test_client()
-        response = client.get("/api/smart-money/flow?is_premium=true")
+        response = client.get("/api/smart-money/flow?subscription_role=VIP")
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.data.decode("utf-8"))
         self.assertFalse(data["is_locked"])
@@ -279,7 +279,7 @@ class TestTradeDoctorBackend(unittest.TestCase):
     def test_get_trade_diagnostic_premium(self, mock_history):
         mock_history.return_value = self.mock_df
         client = app.app.test_client()
-        response = client.get("/api/trade-diagnostic?ticker=AAPL&is_premium=true")
+        response = client.get("/api/trade-diagnostic?ticker=AAPL&subscription_role=Pro")
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.data.decode("utf-8"))
         self.assertEqual(data["ticker"], "AAPL")
@@ -308,8 +308,8 @@ class TestTradeDoctorBackend(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.data.decode("utf-8"))
         self.assertTrue(data["success"])
-        self.assertEqual(data["subscription_tier"]["name"], "Alpha Elite Tier")
-        self.assertEqual(data["subscription_tier"]["price_usd"], 49.99)
+        self.assertEqual(data["subscription_tier"]["name"], "VIP Inner Circle Tier")
+        self.assertEqual(data["subscription_tier"]["price_usd"], 69.99)
 
 
 if __name__ == "__main__":

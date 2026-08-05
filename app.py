@@ -3,6 +3,7 @@ from flask_cors import CORS
 import pandas as pd
 import numpy as np
 import os
+import datetime
 
 from data_fetcher import fetch_historical_data, fetch_realtime_details, HIGH_GROWTH_ASSETS
 from indicator_engine import (
@@ -20,8 +21,10 @@ from ai_signal import generate_ai_signal, analyze_chart_image, ai_parse_screener
 app = Flask(__name__)
 CORS(app)
 
-# In-memory store for free-tier AI search query limit tracking (IP-based mock)
-FREE_SEARCH_HISTORY = {}
+# In-memory stores
+FREE_SEARCH_HISTORY = {}  # Tracks IP search timestamps
+SAVED_TRADE_JOURNAL = []  # Simulated AI Trade Journal DB
+TELEGRAM_SUBSCRIBERS = []  # Simulated VIP Telegram watchlist hookups
 
 
 def _clean_nans_and_inf(val):
@@ -48,7 +51,7 @@ def health_check():
     return jsonify({
         "status": "healthy",
         "app": "Trade Doctor Backend API",
-        "version": "1.3.0",
+        "version": "1.4.0",
         "disclaimer": LEGAL_DISCLAIMER
     }), 200
 
@@ -182,9 +185,9 @@ def get_high_growth_assets():
                     "chart_gradient_stops": ["#64748b", "#475569"]
                 },
                 "premium_gate_overlay": {
-                    "text": "Unlock Premium Global & Indian Market Insights — $19.99/month",
+                    "text": "Unlock Premium Global & Indian Market Insights — $29.99/month",
                     "live_data_text": "Upgrade to Access Live Data in USD",
-                    "price_usd": 19.99,
+                    "price_usd": 29.99,
                     "blur_style": "backdrop-blur-md bg-slate-950/70 border border-slate-800",
                     "call_to_action_class": "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-bold px-6 py-3 rounded-lg shadow-lg shadow-amber-500/20 transition-all duration-300"
                 }
@@ -283,13 +286,15 @@ def get_market_gaps_trends():
 def post_screener_ai_search():
     """
     Conversational Natural Language Screener Endpoint.
-    Free tier limits to 1 search per day based on mock user tracking.
-    Premium 'Inner Circle' has unlimited searches.
+    Free tier limits to 1 search per 24 hours based on mock IP user tracking.
+    Pro Tier ($29.99/mo) and above has unlimited search queries.
     """
     req_data = request.get_json() or {}
     query = req_data.get("query", "").strip()
     user_ip = request.remote_addr or "127.0.0.1"
-    is_premium = bool(req_data.get("is_premium", False))
+
+    # Check User Subscription role: "Free" ($0), "Pro" ($29.99), or "VIP" ($69.99)
+    user_role = req_data.get("subscription_role", "Free").strip()
 
     if not query:
         return jsonify({
@@ -297,42 +302,43 @@ def post_screener_ai_search():
             "disclaimer": LEGAL_DISCLAIMER
         }), 400
 
-    # Rate limiting mock for free users
-    if not is_premium:
-        search_count = FREE_SEARCH_HISTORY.get(user_ip, 0)
-        if search_count >= 1:
-            return jsonify({
-                "error": "Free tier limit reached (1 Search per day).",
-                "is_locked": True,
-                "premium_upsell": {
-                    "text": "Upgrade to Inner Circle for unlimited Natural Language AI Searches.",
-                    "price_usd": 19.99,
-                    "cta": "Unlock with Inner Circle ($19.99/mo)"
-                },
-                "disclaimer": LEGAL_DISCLAIMER
-            }), 403
-        else:
-            FREE_SEARCH_HISTORY[user_ip] = search_count + 1
+    # Role-based search checks
+    if user_role == "Free":
+        now = datetime.datetime.now()
+        last_search_time = FREE_SEARCH_HISTORY.get(user_ip)
+        if last_search_time:
+            delta = now - last_search_time
+            if delta.total_seconds() < 86400: # 24 Hours limits
+                remaining_seconds = int(86400 - delta.total_seconds())
+                return jsonify({
+                    "error": "Free tier limit reached (1 Search per 24 hours).",
+                    "is_locked": True,
+                    "remaining_seconds": remaining_seconds,
+                    "premium_upsell": {
+                        "text": "Upgrade to Pro for unlimited Natural Language AI Searches.",
+                        "price_usd": 29.99,
+                        "cta": "Unlock with Pro ($29.99/mo)"
+                    },
+                    "disclaimer": LEGAL_DISCLAIMER
+                }), 403
 
-    # Execute parser
+        FREE_SEARCH_HISTORY[user_ip] = now
+
+    # Execute conversational query parser
     parsed_bounds = ai_parse_screener_query(query)
 
-    # Filter matching stocks from the predefined HIGH_GROWTH_ASSETS array
     matching_assets = []
     for asset in HIGH_GROWTH_ASSETS:
-        # Check sector filter
         if parsed_bounds.get("sector") and parsed_bounds["sector"].lower() not in asset["sector"].lower():
             continue
-        # Check market filter
         if parsed_bounds.get("market") and parsed_bounds["market"].lower() != asset["market"].lower():
             continue
         matching_assets.append(asset)
 
-    # Return structured results
     return jsonify({
         "original_query": query,
         "parsed_parameters": parsed_bounds,
-        "matches": matching_assets[:10], # top 10 limit
+        "matches": matching_assets[:10],
         "disclaimer": LEGAL_DISCLAIMER
     }), 200
 
@@ -341,20 +347,17 @@ def post_screener_ai_search():
 def get_smart_money_flow():
     """
     Institutional Smart Money Flow & Whale Tracker Heatmap API.
-    Provides volume ratios and alert signals for momentum tracking.
-    Locked/Blurred for free users.
+    Only Unlocked for VIP Inner Circle Tier ($69.99/mo).
     """
-    is_premium = request.args.get("is_premium", "false").lower() == "true"
+    user_role = request.args.get("subscription_role", "Free").strip()
+    is_vip = user_role == "VIP"
 
     heatmap_results = []
     whale_alerts = []
 
-    # Process exactly the predefined list to identify Whale spikes
-    # For demo/mock resilience we return compiled items quickly
     for index, asset in enumerate(HIGH_GROWTH_ASSETS[:15]):
-        # Deterministic dummy math to simulate spikes for heatmap
         seed = sum(ord(c) for c in asset["ticker"])
-        volume_ratio = 1.0 + (seed % 35) / 10.0 # ranges up to 4.5
+        volume_ratio = 1.0 + (seed % 35) / 10.0
         price_change_pct = float(f"{((seed % 15) - 4.0):.2f}")
 
         is_spike = volume_ratio >= 2.5
@@ -366,29 +369,28 @@ def get_smart_money_flow():
             "ticker": asset["ticker"],
             "name": asset["name"],
             "market": asset["market"],
-            "volume_z_score": float(f"{volume_ratio:.2f}"),
-            "price_change_pct": price_change_pct,
-            "label": activity_label if is_premium else "[LOCKED]"
+            "volume_z_score": float(f"{volume_ratio:.2f}") if is_vip else None,
+            "price_change_pct": price_change_pct if is_vip else None,
+            "label": activity_label if is_vip else "[LOCKED]"
         }
         heatmap_results.append(heatmap_item)
 
-        if is_spike:
+        if is_spike and is_vip:
             whale_alerts.append({
                 "ticker": asset["ticker"],
                 "message": f"Whale spike alert: {volume_ratio:.2f}x volume flow detected with {price_change_pct}% change.",
                 "severity": "High" if volume_ratio > 3.2 else "Medium"
             })
 
-    if not is_premium:
-        # Partially blur details and offer upsell package
+    if not is_vip:
         return jsonify({
-            "heatmap": heatmap_results[:2], # Tease first 2
+            "heatmap": heatmap_results[:2], # Tease first 2 with masked metrics
             "whale_alerts": [],
             "is_locked": True,
             "premium_upsell": {
-                "text": "Unlock Smart Money Entry Points & Live Telegram Whale Alerts with Inner Circle ($19.99/mo).",
-                "price_usd": 19.99,
-                "badge_lock": "🔒 Unlock with Inner Circle ($19.99/mo)"
+                "text": "Unlock Smart Money Volume Z-Scores and Whale Activity Alerts with VIP Inner Circle ($69.99/mo).",
+                "price_usd": 69.99,
+                "badge_lock": "🔒 Unlock with VIP Inner Circle ($69.99/mo)"
             },
             "disclaimer": LEGAL_DISCLAIMER
         }), 200
@@ -405,11 +407,13 @@ def get_smart_money_flow():
 def get_trade_diagnostic():
     """
     AI Trade Diagnostic & "Mistake Blocker" Setup API.
-    Uses ATR and health scores to calculate risk setups.
-    Free users can see the score but not the entry/exit breakdown.
+    Free users can see the score.
+    Pro Tier ($29.99/mo) and VIP Tier ($69.99/mo) unlock ATR Stops and exact entries.
     """
     ticker = request.args.get("ticker", "AAPL").upper().strip()
-    is_premium = request.args.get("is_premium", "false").lower() == "true"
+    user_role = request.args.get("subscription_role", "Free").strip()
+
+    is_pro_or_above = user_role in ["Pro", "VIP"]
 
     df = fetch_historical_data(ticker, period="3mo", interval="1d")
     if df.empty:
@@ -423,8 +427,6 @@ def get_trade_diagnostic():
 
     # Calculate ATR Stop levels
     latest_close = float(df["Close"].iloc[-1])
-    atr_series = detect_gaps_and_trends(df) # mock ATR trigger check or call indicator calculations
-    # Fetch real atr calculation from engine
     from indicator_engine import calculate_atr
     atr_list = calculate_atr(df)
     atr_val = atr_list.iloc[-1] if not atr_list.empty and not pd.isna(atr_list.iloc[-1]) else latest_close * 0.02
@@ -439,17 +441,16 @@ def get_trade_diagnostic():
         "disclaimer": LEGAL_DISCLAIMER
     }
 
-    if not is_premium:
-        # Free users can see the score but not the breakdown elements
+    if not is_pro_or_above:
         response_payload.update({
             "is_locked": True,
             "atr_stop_loss_setup": None,
             "smart_money_inflow_breakdown": "[LOCKED]",
             "exact_entry_exit_points": "[LOCKED]",
             "premium_upsell": {
-                "text": "Unlock exact entry points, ATR stops, and risk guardrails.",
-                "price_usd": 19.99,
-                "badge_lock": "🔒 Unlock with Inner Circle ($19.99/mo)"
+                "text": "Unlock exact entry points, ATR stop risk setup, and trade logs with Pro ($29.99/mo).",
+                "price_usd": 29.99,
+                "badge_lock": "🔒 Unlock with Pro ($29.99/mo)"
             }
         })
     else:
@@ -470,10 +471,51 @@ def get_trade_diagnostic():
     return jsonify(response_payload), 200
 
 
+@app.route("/api/trade-journal", methods=["POST"])
+def post_trade_journal():
+    """
+    Pro feature ($29.99/mo) and above: Save user trade records to the simulated DB.
+    """
+    req_data = request.get_json() or {}
+    user_role = req_data.get("subscription_role", "Free").strip()
+    ticker = req_data.get("ticker", "").upper().strip()
+    entry_price = req_data.get("entry_price")
+    comments = req_data.get("comments", "").strip()
+
+    if user_role not in ["Pro", "VIP"]:
+        return jsonify({
+            "error": "Saved Trade Journal is a Pro Feature. Please upgrade.",
+            "price_usd": 29.99,
+            "disclaimer": LEGAL_DISCLAIMER
+        }), 403
+
+    if not ticker or not entry_price:
+        return jsonify({
+            "error": "Missing parameters. Required: ticker, entry_price",
+            "disclaimer": LEGAL_DISCLAIMER
+        }), 400
+
+    record = {
+        "id": len(SAVED_TRADE_JOURNAL) + 1,
+        "ticker": ticker,
+        "entry_price": float(entry_price),
+        "comments": comments,
+        "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+    SAVED_TRADE_JOURNAL.append(record)
+
+    return jsonify({
+        "success": True,
+        "message": "Trade logged successfully in your AI Journal.",
+        "record": record,
+        "disclaimer": LEGAL_DISCLAIMER
+    }), 200
+
+
 @app.route("/api/telegram/alert", methods=["POST"])
 def post_telegram_alert():
     """
-    Mock Telegram Alert Bot endpoint.
+    Mock Telegram Alert Bot subscriber endpoint.
     Sends instant alerts when momentum indicators trigger smart money flow.
     """
     req_data = request.get_json() or {}
@@ -486,12 +528,85 @@ def post_telegram_alert():
             "disclaimer": LEGAL_DISCLAIMER
         }), 400
 
-    # Simple mockup alert confirmation
     return jsonify({
         "success": True,
         "message": f"Subscribed successfully! Live Whale alerts for {ticker} will be pushed to Telegram chat ID: {chat_id}.",
         "channel": "Trade Doctor Telegram Alerts Bot",
-        "pricing_usd_rate": 19.99,
+        "pricing_usd_rate": 69.99,
+        "disclaimer": LEGAL_DISCLAIMER
+    }), 200
+
+
+@app.route("/api/telegram/webhook", methods=["POST"])
+def post_telegram_webhook():
+    """
+    VIP feature webhook monitoring.
+    Sends alerts to subscribers when Trade Score > 85 + Institutional Volume Spike occurs.
+    """
+    req_data = request.get_json() or {}
+    ticker = req_data.get("ticker", "AAPL").upper().strip()
+    chat_id = req_data.get("chat_id", "vip_alerts_channel").strip()
+
+    df = fetch_historical_data(ticker, period="1mo", interval="1d")
+    if df.empty:
+        return jsonify({"error": f"Failed to fetch data for ticker {ticker}"}), 404
+
+    # Calculate metrics
+    diagnostic = calculate_trade_health_score(df)
+    score = diagnostic["score"]
+    vol_ratio = diagnostic["volume_spike_ratio"]
+
+    # Check triggers: Score > 85 and Institutional Vol Spike (volume >= 2.5x)
+    triggered = score > 85 and vol_ratio >= 2.5
+    dispatch_message = None
+
+    if triggered:
+        dispatch_message = (
+            f"🔔 [VIP Inner Circle Alert] {ticker} has breached key filters!\n"
+            f"📈 AI Trade Score: {score}/100\n"
+            f"🐋 Smart Money Volume: {vol_ratio:.2f}x average\n"
+            f"⚖️ Setup status: Bullish Breakout Accumulation\n"
+            f"🛡️ Warning disclaimer: {LEGAL_DISCLAIMER}"
+        )
+
+    return jsonify({
+        "ticker": ticker,
+        "vip_chat_id": chat_id,
+        "triggered": triggered,
+        "trade_health_score": score,
+        "volume_spike_ratio": vol_ratio,
+        "dispatch_message": dispatch_message,
+        "disclaimer": LEGAL_DISCLAIMER
+    }), 200
+
+
+@app.route("/api/briefing", methods=["GET"])
+def get_ai_briefing():
+    """
+    VIP 1-Click AI Voice/Text Briefing generator via Gemini API.
+    """
+    ticker = request.args.get("ticker", "AAPL").upper().strip()
+    user_role = request.args.get("subscription_role", "Free").strip()
+
+    if user_role != "VIP":
+        return jsonify({
+            "error": "AI Market Briefing is a VIP Inner Circle feature. Please upgrade.",
+            "price_usd": 69.99,
+            "disclaimer": LEGAL_DISCLAIMER
+        }), 403
+
+    # Fast summary mock
+    briefing_text = (
+        f"Trade Doctor AI Morning Briefing for {ticker}: "
+        f"Consolidated support lines are holding firm above moving averages. "
+        f"A visual analysis of candle bodies reveals a strong Hammer pattern close to support, "
+        f"matching classic trading literature. Smart money tracking indicates volume is 3x baseline."
+    )
+
+    return jsonify({
+        "ticker": ticker,
+        "briefing": briefing_text,
+        "voice_synthesis_url": f"https://api.tradedoctor.ai/v1/voice?text={briefing_text[:50]}",
         "disclaimer": LEGAL_DISCLAIMER
     }), 200
 
@@ -513,11 +628,10 @@ def post_auth_register_login():
             "disclaimer": LEGAL_DISCLAIMER
         }), 400
 
-    # Services split cleanly by USD pricing tiers
     tiers_info = {
-        1: {"name": "Momentum Tier", "price_usd": 9.99, "benefits": "Retail momentum data, indicators & basic alerts"},
-        2: {"name": "Inner Circle Tier", "price_usd": 19.99, "benefits": "Institutional smart money flow tracking, Whale alarms, unlimited AI screener searches"},
-        3: {"name": "Alpha Elite Tier", "price_usd": 49.99, "benefits": "Full AI trade diagnostics, mistake blockers, live Telegram signals"}
+        1: {"name": "Free Tier", "price_usd": 0.00, "benefits": "Retail momentum data, indicators & basic alerts"},
+        2: {"name": "Pro Tier", "price_usd": 29.99, "benefits": "Institutional smart money flow tracking, Whale alarms, unlimited AI screener searches"},
+        3: {"name": "VIP Inner Circle Tier", "price_usd": 69.99, "benefits": "Full AI trade diagnostics, mistake blockers, live Telegram signals"}
     }
 
     selected_tier = tiers_info.get(tier_level, tiers_info[2])
