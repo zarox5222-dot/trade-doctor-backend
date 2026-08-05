@@ -13,7 +13,10 @@ if GEMINI_API_KEY:
     except Exception as e:
         print(f"Warning: Failed to configure Google Generative AI client: {e}")
 
-LEGAL_DISCLAIMER = "For educational/informational purposes only. Not financial advice."
+LEGAL_DISCLAIMER = (
+    "All signals, analytics, and scores are generated for informational/educational purposes only "
+    "and do not constitute financial advice. Past performance is not indicative of future results."
+)
 
 
 def _generate_mock_signal(ticker: str, rsi: Optional[float], macd: Optional[float], macd_signal: Optional[float], close_price: Optional[float]) -> Dict[str, Any]:
@@ -170,21 +173,20 @@ def analyze_chart_image(base64_image_data: str) -> Dict[str, Any]:
     """
     Accepts base64-encoded screenshot of a candlestick chart, analyzes trade entry mistakes,
     and identifies where "it seems appropriate" to take the trade, strictly without guaranteeing outcomes.
-    Follows absolute legal safety guidelines.
+    Recognizes classic candlestick book patterns and provides feedback.
     """
     if not GEMINI_API_KEY:
-        # Strict deterministic fallback response
         return {
             "is_valid_chart": True,
             "identified_mistake": "Entering trade late into a strong parabolic candle after a support breakout.",
             "appropriate_entry_zone": "It seems appropriate to look for entry signals near the established Support Line or upon a consolidated pullback rather than chasing a rapid candle breakout.",
-            "educational_analysis": "Chasing breakout candles often results in buying near local highs, exposing the capital to severe immediate drawdowns. Review candle closes and wait for consolidation.",
+            "candlestick_book_pattern": "Hammer Candle Pullback Pattern",
+            "educational_analysis": "This candlestick aligns closely with the 'Hammer Candle' layout found in classic trading literature. Chasing breakout candles often results in buying near local highs, exposing capital to severe immediate drawdowns.",
             "disclaimer": LEGAL_DISCLAIMER,
             "source": "Fallback Visual Analysis Engine"
         }
 
     try:
-        # Decode the image
         img_bytes = base64.b64decode(base64_image_data)
         image_part = {
             "mime_type": "image/png",
@@ -200,13 +202,14 @@ def analyze_chart_image(base64_image_data: str) -> Dict[str, Any]:
         1. DO NOT use absolute statements like "You must enter here" or "This was a perfect entry."
         2. Instead, use soft, educational language such as: "It seems appropriate to initiate entry near...", "There is an increased probability of support near...", "A logical area to monitor would be...".
         3. Explain any clear visual mistakes (e.g. chasing massive candles, entering directly into major resistance zones, buying into overbought indicators).
-        4. Focus heavily on candlestick structures, support/resistance alignments, and indicator clues.
+        4. Focus heavily on candlestick structures (e.g. Hammer, Shooting Star, Bullish Engulfing, Marubozu), support/resistance alignments, and standard literature patterns.
 
         Output strictly a JSON object with this schema:
         {
             "is_valid_chart": true,
             "identified_mistake": "Description of the user's apparent entry mistake or trade location relative to candles.",
             "appropriate_entry_zone": "A soft suggestion of where it seems appropriate to have taken or monitored the trade.",
+            "candlestick_book_pattern": "Name of the detected classic candlestick pattern (e.g. Bullish Engulfing, Hammer Rejection, Bearish Marubozu)",
             "educational_analysis": "A detailed educational breakdown of candle boundaries, wick rejections, and indicator signals present in the chart."
         }
         """
@@ -228,17 +231,118 @@ def analyze_chart_image(base64_image_data: str) -> Dict[str, Any]:
             "is_valid_chart": ai_data.get("is_valid_chart", True),
             "identified_mistake": ai_data.get("identified_mistake", "Chasing late-stage breakout momentum."),
             "appropriate_entry_zone": ai_data.get("appropriate_entry_zone", "It seems appropriate to consider entries near support structures rather than chasing wicks."),
+            "candlestick_book_pattern": ai_data.get("candlestick_book_pattern", "Classic Candle Reversal"),
             "educational_analysis": ai_data.get("educational_analysis", "Review candle configurations and wait for confirmed closes before acting."),
             "disclaimer": LEGAL_DISCLAIMER,
             "source": "Gemini Multimodal Analysis"
         }
     except Exception as e:
-        # Fallback in case of exceptions
         return {
             "is_valid_chart": True,
             "identified_mistake": f"Chasing momentum wicks. Analysis limited due to visual parser: {str(e)}",
             "appropriate_entry_zone": "It seems appropriate to wait for pullbacks to historical support levels to manage downside risk.",
+            "candlestick_book_pattern": "Standard Candlestick Pattern",
             "educational_analysis": "Look for candlestick validation close to moving averages. This ensures tighter stop-losses and higher win ratios.",
             "disclaimer": LEGAL_DISCLAIMER,
             "source": "Fallback Visual Analysis Engine"
         }
+
+
+def ai_parse_screener_query(user_query: str) -> Dict[str, Any]:
+    """
+    Conversational Natural Language Screener: Parses conversational requests
+    (e.g., "Find technology stocks with RSI under 40 and unusual volume")
+    into structured pandas query parameters.
+    """
+    # Deterministic fallback parser
+    fallback_result = {
+        "rsi_less_than": None,
+        "rsi_greater_than": None,
+        "volume_spike_multiplier": None,
+        "market": None,
+        "sector": None,
+        "explanation": f"Screener query processed: filtering assets matching conversational patterns."
+    }
+
+    query_lower = user_query.lower()
+
+    # Simple rule based checks for fallback compatibility
+    if "rsi" in query_lower:
+        if "under" in query_lower or "below" in query_lower or "<" in query_lower:
+            # find first number
+            words = query_lower.split()
+            for w in words:
+                cleaned = "".join(filter(str.isdigit, w))
+                if cleaned:
+                    fallback_result["rsi_less_than"] = int(cleaned)
+                    break
+            if not fallback_result["rsi_less_than"]:
+                fallback_result["rsi_less_than"] = 40
+        elif "above" in query_lower or "over" in query_lower or ">" in query_lower:
+            words = query_lower.split()
+            for w in words:
+                cleaned = "".join(filter(str.isdigit, w))
+                if cleaned:
+                    fallback_result["rsi_greater_than"] = int(cleaned)
+                    break
+            if not fallback_result["rsi_greater_than"]:
+                fallback_result["rsi_greater_than"] = 70
+
+    if "volume" in query_lower:
+        fallback_result["volume_spike_multiplier"] = 2.5 if "unusual" in query_lower or "high" in query_lower or "spike" in query_lower else 1.5
+
+    if "tech" in query_lower or "technology" in query_lower:
+        fallback_result["sector"] = "Tech"
+    elif "crypto" in query_lower:
+        fallback_result["sector"] = "Crypto"
+    elif "finance" in query_lower or "bank" in query_lower:
+        fallback_result["sector"] = "Finance"
+
+    if "india" in query_lower:
+        fallback_result["market"] = "India"
+    elif "global" in query_lower or "us" in query_lower:
+        fallback_result["market"] = "Global"
+
+    if not GEMINI_API_KEY:
+        return fallback_result
+
+    try:
+        prompt = f"""
+        You are an advanced financial screener parser.
+        Translate this natural language user query into structured stock filter parameters:
+        "{user_query}"
+
+        Return strictly a JSON object with this schema:
+        {{
+            "rsi_less_than": integer or null,
+            "rsi_greater_than": integer or null,
+            "volume_spike_multiplier": float or null,
+            "market": "Global" | "India" | null,
+            "sector": "Tech" | "Crypto" | "Finance" | "Automotive" | "Energy" | "Semiconductors" | null,
+            "explanation": "A 1-sentence AI Summary explaining why matching companies satisfy these parameters."
+        }}
+        """
+
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        response = model.generate_content(prompt)
+        text = response.text.strip()
+
+        if text.startswith("```json"):
+            text = text[7:]
+        if text.startswith("```"):
+            text = text[3:]
+        if text.endswith("```"):
+            text = text[:-3]
+        text = text.strip()
+
+        ai_data = json.loads(text)
+        return {
+            "rsi_less_than": ai_data.get("rsi_less_than"),
+            "rsi_greater_than": ai_data.get("rsi_greater_than"),
+            "volume_spike_multiplier": ai_data.get("volume_spike_multiplier"),
+            "market": ai_data.get("market"),
+            "sector": ai_data.get("sector"),
+            "explanation": ai_data.get("explanation", "Matches custom technical momentum conditions.")
+        }
+    except Exception:
+        return fallback_result

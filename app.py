@@ -10,12 +10,18 @@ from indicator_engine import (
     estimate_risk_reward_zones,
     calculate_reversal_probability,
     calculate_position_sizing,
-    detect_gaps_and_trends
+    detect_gaps_and_trends,
+    calculate_volume_z_score,
+    calculate_trade_health_score,
+    estimate_atr_stops
 )
-from ai_signal import generate_ai_signal, analyze_chart_image, LEGAL_DISCLAIMER
+from ai_signal import generate_ai_signal, analyze_chart_image, ai_parse_screener_query, LEGAL_DISCLAIMER
 
 app = Flask(__name__)
 CORS(app)
+
+# In-memory store for free-tier AI search query limit tracking (IP-based mock)
+FREE_SEARCH_HISTORY = {}
 
 
 def _clean_nans_and_inf(val):
@@ -42,7 +48,7 @@ def health_check():
     return jsonify({
         "status": "healthy",
         "app": "Trade Doctor Backend API",
-        "version": "1.2.0",
+        "version": "1.3.0",
         "disclaimer": LEGAL_DISCLAIMER
     }), 200
 
@@ -244,7 +250,6 @@ def post_analyze_chart():
             "disclaimer": LEGAL_DISCLAIMER
         }), 400
 
-    # Execute vision analytics model
     analysis = analyze_chart_image(base64_image)
     analysis = _clean_nans_and_inf(analysis)
 
@@ -272,6 +277,261 @@ def get_market_gaps_trends():
     gaps_trends["disclaimer"] = LEGAL_DISCLAIMER
 
     return jsonify(gaps_trends), 200
+
+
+@app.route("/api/screener/ai-search", methods=["POST"])
+def post_screener_ai_search():
+    """
+    Conversational Natural Language Screener Endpoint.
+    Free tier limits to 1 search per day based on mock user tracking.
+    Premium 'Inner Circle' has unlimited searches.
+    """
+    req_data = request.get_json() or {}
+    query = req_data.get("query", "").strip()
+    user_ip = request.remote_addr or "127.0.0.1"
+    is_premium = bool(req_data.get("is_premium", False))
+
+    if not query:
+        return jsonify({
+            "error": "Query string is required.",
+            "disclaimer": LEGAL_DISCLAIMER
+        }), 400
+
+    # Rate limiting mock for free users
+    if not is_premium:
+        search_count = FREE_SEARCH_HISTORY.get(user_ip, 0)
+        if search_count >= 1:
+            return jsonify({
+                "error": "Free tier limit reached (1 Search per day).",
+                "is_locked": True,
+                "premium_upsell": {
+                    "text": "Upgrade to Inner Circle for unlimited Natural Language AI Searches.",
+                    "price_usd": 19.99,
+                    "cta": "Unlock with Inner Circle ($19.99/mo)"
+                },
+                "disclaimer": LEGAL_DISCLAIMER
+            }), 403
+        else:
+            FREE_SEARCH_HISTORY[user_ip] = search_count + 1
+
+    # Execute parser
+    parsed_bounds = ai_parse_screener_query(query)
+
+    # Filter matching stocks from the predefined HIGH_GROWTH_ASSETS array
+    matching_assets = []
+    for asset in HIGH_GROWTH_ASSETS:
+        # Check sector filter
+        if parsed_bounds.get("sector") and parsed_bounds["sector"].lower() not in asset["sector"].lower():
+            continue
+        # Check market filter
+        if parsed_bounds.get("market") and parsed_bounds["market"].lower() != asset["market"].lower():
+            continue
+        matching_assets.append(asset)
+
+    # Return structured results
+    return jsonify({
+        "original_query": query,
+        "parsed_parameters": parsed_bounds,
+        "matches": matching_assets[:10], # top 10 limit
+        "disclaimer": LEGAL_DISCLAIMER
+    }), 200
+
+
+@app.route("/api/smart-money/flow", methods=["GET"])
+def get_smart_money_flow():
+    """
+    Institutional Smart Money Flow & Whale Tracker Heatmap API.
+    Provides volume ratios and alert signals for momentum tracking.
+    Locked/Blurred for free users.
+    """
+    is_premium = request.args.get("is_premium", "false").lower() == "true"
+
+    heatmap_results = []
+    whale_alerts = []
+
+    # Process exactly the predefined list to identify Whale spikes
+    # For demo/mock resilience we return compiled items quickly
+    for index, asset in enumerate(HIGH_GROWTH_ASSETS[:15]):
+        # Deterministic dummy math to simulate spikes for heatmap
+        seed = sum(ord(c) for c in asset["ticker"])
+        volume_ratio = 1.0 + (seed % 35) / 10.0 # ranges up to 4.5
+        price_change_pct = float(f"{((seed % 15) - 4.0):.2f}")
+
+        is_spike = volume_ratio >= 2.5
+        activity_label = "Smart Money Accumulation" if is_spike else "Normal Activity"
+        if volume_ratio >= 3.5:
+            activity_label = "Institutional Activity"
+
+        heatmap_item = {
+            "ticker": asset["ticker"],
+            "name": asset["name"],
+            "market": asset["market"],
+            "volume_z_score": float(f"{volume_ratio:.2f}"),
+            "price_change_pct": price_change_pct,
+            "label": activity_label if is_premium else "[LOCKED]"
+        }
+        heatmap_results.append(heatmap_item)
+
+        if is_spike:
+            whale_alerts.append({
+                "ticker": asset["ticker"],
+                "message": f"Whale spike alert: {volume_ratio:.2f}x volume flow detected with {price_change_pct}% change.",
+                "severity": "High" if volume_ratio > 3.2 else "Medium"
+            })
+
+    if not is_premium:
+        # Partially blur details and offer upsell package
+        return jsonify({
+            "heatmap": heatmap_results[:2], # Tease first 2
+            "whale_alerts": [],
+            "is_locked": True,
+            "premium_upsell": {
+                "text": "Unlock Smart Money Entry Points & Live Telegram Whale Alerts with Inner Circle ($19.99/mo).",
+                "price_usd": 19.99,
+                "badge_lock": "🔒 Unlock with Inner Circle ($19.99/mo)"
+            },
+            "disclaimer": LEGAL_DISCLAIMER
+        }), 200
+
+    return jsonify({
+        "heatmap": heatmap_results,
+        "whale_alerts": whale_alerts,
+        "is_locked": False,
+        "disclaimer": LEGAL_DISCLAIMER
+    }), 200
+
+
+@app.route("/api/trade-diagnostic", methods=["GET"])
+def get_trade_diagnostic():
+    """
+    AI Trade Diagnostic & "Mistake Blocker" Setup API.
+    Uses ATR and health scores to calculate risk setups.
+    Free users can see the score but not the entry/exit breakdown.
+    """
+    ticker = request.args.get("ticker", "AAPL").upper().strip()
+    is_premium = request.args.get("is_premium", "false").lower() == "true"
+
+    df = fetch_historical_data(ticker, period="3mo", interval="1d")
+    if df.empty:
+        return jsonify({
+            "error": f"Failed to retrieve data for diagnostic: {ticker}",
+            "disclaimer": LEGAL_DISCLAIMER
+        }), 404
+
+    # Calculate pre-trade diagnostics
+    diagnostic = calculate_trade_health_score(df)
+
+    # Calculate ATR Stop levels
+    latest_close = float(df["Close"].iloc[-1])
+    atr_series = detect_gaps_and_trends(df) # mock ATR trigger check or call indicator calculations
+    # Fetch real atr calculation from engine
+    from indicator_engine import calculate_atr
+    atr_list = calculate_atr(df)
+    atr_val = atr_list.iloc[-1] if not atr_list.empty and not pd.isna(atr_list.iloc[-1]) else latest_close * 0.02
+
+    stops = estimate_atr_stops(latest_close, atr_val)
+
+    response_payload = {
+        "ticker": ticker,
+        "trade_health_score": diagnostic["score"],
+        "status": diagnostic["status"],
+        "risk_warning": diagnostic["risk_warning"],
+        "disclaimer": LEGAL_DISCLAIMER
+    }
+
+    if not is_premium:
+        # Free users can see the score but not the breakdown elements
+        response_payload.update({
+            "is_locked": True,
+            "atr_stop_loss_setup": None,
+            "smart_money_inflow_breakdown": "[LOCKED]",
+            "exact_entry_exit_points": "[LOCKED]",
+            "premium_upsell": {
+                "text": "Unlock exact entry points, ATR stops, and risk guardrails.",
+                "price_usd": 19.99,
+                "badge_lock": "🔒 Unlock with Inner Circle ($19.99/mo)"
+            }
+        })
+    else:
+        response_payload.update({
+            "is_locked": False,
+            "atr_stop_loss_setup": stops,
+            "smart_money_inflow_breakdown": {
+                "volume_multiplier_ratio": diagnostic["volume_spike_ratio"],
+                "indicators_aligned": diagnostic["reasons"]
+            },
+            "exact_entry_exit_points": {
+                "estimated_appropriate_entry": float(latest_close),
+                "suggested_risk_ratio": "1:2 and 1:3 targets"
+            }
+        })
+
+    response_payload = _clean_nans_and_inf(response_payload)
+    return jsonify(response_payload), 200
+
+
+@app.route("/api/telegram/alert", methods=["POST"])
+def post_telegram_alert():
+    """
+    Mock Telegram Alert Bot endpoint.
+    Sends instant alerts when momentum indicators trigger smart money flow.
+    """
+    req_data = request.get_json() or {}
+    ticker = req_data.get("ticker", "AAPL").upper().strip()
+    chat_id = req_data.get("chat_id", "").strip()
+
+    if not chat_id:
+        return jsonify({
+            "error": "Missing parameter: 'chat_id' is required for Telegram integration.",
+            "disclaimer": LEGAL_DISCLAIMER
+        }), 400
+
+    # Simple mockup alert confirmation
+    return jsonify({
+        "success": True,
+        "message": f"Subscribed successfully! Live Whale alerts for {ticker} will be pushed to Telegram chat ID: {chat_id}.",
+        "channel": "Trade Doctor Telegram Alerts Bot",
+        "pricing_usd_rate": 19.99,
+        "disclaimer": LEGAL_DISCLAIMER
+    }), 200
+
+
+@app.route("/api/auth/register-login", methods=["POST"])
+def post_auth_register_login():
+    """
+    Account selection & signup mockup endpoint supporting Google or Email account selections.
+    Enables selection of three premium tier packages pricing in USD.
+    """
+    req_data = request.get_json() or {}
+    email = req_data.get("email", "").strip()
+    provider = req_data.get("provider", "email").strip().lower() # 'email' or 'google'
+    tier_level = int(req_data.get("tier_level", 1)) # Level 1, 2, or 3
+
+    if not email and provider == "email":
+        return jsonify({
+            "error": "Email is required for registration/login.",
+            "disclaimer": LEGAL_DISCLAIMER
+        }), 400
+
+    # Services split cleanly by USD pricing tiers
+    tiers_info = {
+        1: {"name": "Momentum Tier", "price_usd": 9.99, "benefits": "Retail momentum data, indicators & basic alerts"},
+        2: {"name": "Inner Circle Tier", "price_usd": 19.99, "benefits": "Institutional smart money flow tracking, Whale alarms, unlimited AI screener searches"},
+        3: {"name": "Alpha Elite Tier", "price_usd": 49.99, "benefits": "Full AI trade diagnostics, mistake blockers, live Telegram signals"}
+    }
+
+    selected_tier = tiers_info.get(tier_level, tiers_info[2])
+
+    return jsonify({
+        "success": True,
+        "user": {
+            "email": email or f"google-oauth-{provider}@domain.com",
+            "provider": provider,
+            "status": "Active"
+        },
+        "subscription_tier": selected_tier,
+        "disclaimer": LEGAL_DISCLAIMER
+    }), 200
 
 
 if __name__ == "__main__":

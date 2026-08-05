@@ -144,10 +144,118 @@ def estimate_risk_reward_zones(df: pd.DataFrame) -> dict:
     }
 
 
+def calculate_volume_z_score(df: pd.DataFrame, period: int = 20) -> float:
+    """
+    Calculate Volume Ratio / Z-Score of the latest candle.
+    Identifies if current volume is 2.5x+ above 20-day Moving Average.
+    """
+    if df.empty or len(df) < period or "Volume" not in df.columns:
+        return 1.0
+
+    latest_vol = float(df["Volume"].iloc[-1])
+    ma_vol = float(df["Volume"].iloc[-21:-1].mean())
+
+    if ma_vol <= 0:
+        return 1.0
+
+    return latest_vol / ma_vol
+
+
+def calculate_trade_health_score(df: pd.DataFrame) -> Dict[str, Any]:
+    """
+    Pre-Trade Diagnostic: Calculates a Trade Health Score (0 to 100)
+    combining indicators (RSI, MACD), Volume spikes, and volatility (ATR).
+    """
+    if df.empty:
+        return {"score": 50, "status": "Neutral", "risk_warning": "No market data available"}
+
+    df_ind = append_all_indicators(df)
+    latest = df_ind.iloc[-1]
+
+    score = 50 # neutral start
+    reasons = []
+
+    # 1. RSI Scoring
+    rsi_val = latest.get("RSI_14")
+    if not pd.isna(rsi_val):
+        if rsi_val < 30:
+            score += 25
+            reasons.append("Asset heavily oversold (potential reversal opportunity)")
+        elif rsi_val > 70:
+            score -= 25
+            reasons.append("Asset heavily overbought (elevated correction risk)")
+        elif 40 <= rsi_val <= 60:
+            score += 5
+            reasons.append("RSI shows stable neutral consolidation momentum")
+
+    # 2. MACD Alignment
+    macd_val = latest.get("MACD")
+    macd_sig = latest.get("MACD_Signal")
+    if not pd.isna(macd_val) and not pd.isna(macd_sig):
+        if macd_val > macd_sig:
+            score += 15
+            reasons.append("MACD is in a bullish crossover zone")
+        else:
+            score -= 15
+            reasons.append("MACD is in a bearish crossover zone")
+
+    # 3. Smart Money Volume Spike
+    vol_ratio = calculate_volume_z_score(df)
+    if vol_ratio >= 2.5:
+        score += 15
+        reasons.append("Significant institutional Smart Money accumulation detected (volume spike >= 2.5x)")
+    elif vol_ratio >= 1.5:
+        score += 5
+        reasons.append("Minor volume spike indicating emerging interest")
+
+    # Standard bounds limit
+    score = int(np.clip(score, 5, 98))
+
+    status = "Highly Bullish Setup" if score >= 75 else ("Consolidating" if score >= 40 else "High Risk / Bearish Setup")
+
+    # Mistake Blocker trigger conditions
+    risk_warning = None
+    if score < 40:
+        risk_warning = "High Risk Setup: Resistance near entry and elevated volatility detected."
+
+    return {
+        "score": score,
+        "status": status,
+        "reasons": reasons,
+        "volume_spike_ratio": float(f"{vol_ratio:.2f}"),
+        "risk_warning": risk_warning
+    }
+
+
+def estimate_atr_stops(entry_price: float, atr_value: float) -> dict:
+    """
+    Suggest mathematically sound volatility-adjusted Stop-Loss and Take-Profit levels
+    (1:2 and 1:3 Risk-Reward Ratio) using Average True Range (ATR).
+    """
+    if entry_price <= 0 or atr_value <= 0:
+        return {}
+
+    # Standard risk multiplier is 2.0x ATR for Stop Loss
+    stop_loss = entry_price - (2.0 * atr_value)
+    risk = entry_price - stop_loss
+
+    take_profit_1_2 = entry_price + (2.0 * risk)
+    take_profit_1_3 = entry_price + (3.0 * risk)
+
+    return {
+        "entry_price": float(entry_price),
+        "atr": float(atr_value),
+        "stop_loss": float(stop_loss),
+        "take_profit_1_2": float(take_profit_1_2),
+        "take_profit_1_3": float(take_profit_1_3),
+        "risk_reward_ratios": ["1:2", "1:3"]
+    }
+
+
 def detect_gaps_and_trends(df: pd.DataFrame) -> Dict[str, Any]:
     """
     Scan historical series to identify:
-    1. Market gaps (price gap-up / gap-down between previous close and current open).
+    1. Market gaps.
     2. Major support/resistance breakouts.
     3. Macro trend signals.
     """
@@ -159,10 +267,8 @@ def detect_gaps_and_trends(df: pd.DataFrame) -> Dict[str, Any]:
             "breakout_direction": None
         }
 
-    # Clean and align candles
     df_clean = df.copy()
 
-    # 1. Detect Recent Gaps (past 5 periods)
     recent_gaps = []
     for i in range(len(df_clean) - 5, len(df_clean)):
         if i <= 0:
@@ -170,9 +276,8 @@ def detect_gaps_and_trends(df: pd.DataFrame) -> Dict[str, Any]:
         prev_close = float(df_clean["Close"].iloc[i - 1])
         curr_open = float(df_clean["Open"].iloc[i])
 
-        # Calculate gap %
         gap_pct = ((curr_open - prev_close) / prev_close) * 100.0
-        if abs(gap_pct) >= 0.5: # 0.5% gap threshold
+        if abs(gap_pct) >= 0.5:
             gap_type = "Gap Up" if gap_pct > 0 else "Gap Down"
             recent_gaps.append({
                 "index_position": i,
@@ -182,13 +287,7 @@ def detect_gaps_and_trends(df: pd.DataFrame) -> Dict[str, Any]:
                 "current_open": curr_open
             })
 
-    # 2. Breakout Detector
-    # Check if latest Close broke above resistance (e.g., rolling high of past 20 candles)
     latest_close = float(df_clean["Close"].iloc[-1])
-    latest_high = float(df_clean["High"].iloc[-1])
-    latest_low = float(df_clean["Low"].iloc[-1])
-
-    # Use rolling 20 period excluding latest row
     rolling_subset = df_clean.iloc[-21:-1]
     breakout_detected = False
     breakout_direction = None
@@ -204,8 +303,6 @@ def detect_gaps_and_trends(df: pd.DataFrame) -> Dict[str, Any]:
             breakout_detected = True
             breakout_direction = "Bearish Breakout (Support Violated)"
 
-    # 3. Macro Trend Calculation
-    # Determine trend via Simple Moving Average slope
     sma_20 = calculate_sma(df_clean, period=20)
     if not sma_20.empty and not pd.isna(sma_20.iloc[-1]) and not pd.isna(sma_20.iloc[-5]):
         slope = sma_20.iloc[-1] - sma_20.iloc[-5]

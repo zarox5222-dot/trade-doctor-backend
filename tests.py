@@ -70,6 +70,22 @@ class TestTradeDoctorBackend(unittest.TestCase):
         self.assertIn("macro_trend", results)
         self.assertIn("breakout_detected", results)
 
+    def test_volume_z_score(self):
+        z_score = indicator_engine.calculate_volume_z_score(self.mock_df)
+        self.assertTrue(z_score > 0)
+
+    def test_calculate_trade_health_score(self):
+        res = indicator_engine.calculate_trade_health_score(self.mock_df)
+        self.assertIn("score", res)
+        self.assertIn("status", res)
+        self.assertIn("volume_spike_ratio", res)
+
+    def test_estimate_atr_stops(self):
+        stops = indicator_engine.estimate_atr_stops(150, 3.5)
+        self.assertEqual(stops["entry_price"], 150.0)
+        self.assertEqual(stops["stop_loss"], 143.0)
+        self.assertEqual(stops["take_profit_1_2"], 164.0)
+
     def test_position_sizing(self):
         sizing = indicator_engine.calculate_position_sizing(10000, 2, 100, 95)
         self.assertEqual(sizing["units"], 40)
@@ -118,6 +134,12 @@ class TestTradeDoctorBackend(unittest.TestCase):
         self.assertIn("breakout", analysis["identified_mistake"].lower())
         self.assertIn("it seems appropriate", analysis["appropriate_entry_zone"].lower())
         self.assertIn("disclaimer", analysis)
+
+    def test_ai_parse_screener_query(self):
+        parsed = ai_signal.ai_parse_screener_query("tech stocks with RSI below 35 and unusual volume")
+        self.assertEqual(parsed["rsi_less_than"], 35)
+        self.assertEqual(parsed["sector"], "Tech")
+        self.assertTrue(parsed["volume_spike_multiplier"] >= 1.5)
 
     @patch("google.generativeai.GenerativeModel")
     @patch("ai_signal.GEMINI_API_KEY", "mocked_key")
@@ -232,6 +254,62 @@ class TestTradeDoctorBackend(unittest.TestCase):
         self.assertIn("recent_gaps", data)
         self.assertIn("macro_trend", data)
         self.assertIn("breakout_detected", data)
+
+    def test_post_screener_ai_search_endpoint_success(self):
+        client = app.app.test_client()
+        payload = {
+            "query": "Find technology stocks with RSI under 40 and high volume",
+            "is_premium": True
+        }
+        response = client.post("/api/screener/ai-search", json=payload)
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data.decode("utf-8"))
+        self.assertEqual(data["original_query"], payload["query"])
+        self.assertIn("matches", data)
+
+    def test_get_smart_money_flow_premium(self):
+        client = app.app.test_client()
+        response = client.get("/api/smart-money/flow?is_premium=true")
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data.decode("utf-8"))
+        self.assertFalse(data["is_locked"])
+        self.assertTrue(len(data["heatmap"]) > 0)
+
+    @patch("app.fetch_historical_data")
+    def test_get_trade_diagnostic_premium(self, mock_history):
+        mock_history.return_value = self.mock_df
+        client = app.app.test_client()
+        response = client.get("/api/trade-diagnostic?ticker=AAPL&is_premium=true")
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data.decode("utf-8"))
+        self.assertEqual(data["ticker"], "AAPL")
+        self.assertFalse(data["is_locked"])
+        self.assertIn("atr_stop_loss_setup", data)
+
+    def test_post_telegram_alert(self):
+        client = app.app.test_client()
+        payload = {
+            "ticker": "AAPL",
+            "chat_id": "12345"
+        }
+        response = client.post("/api/telegram/alert", json=payload)
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data.decode("utf-8"))
+        self.assertTrue(data["success"])
+
+    def test_post_auth_register_login(self):
+        client = app.app.test_client()
+        payload = {
+            "email": "trader@saas.com",
+            "provider": "email",
+            "tier_level": 3
+        }
+        response = client.post("/api/auth/register-login", json=payload)
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data.decode("utf-8"))
+        self.assertTrue(data["success"])
+        self.assertEqual(data["subscription_tier"]["name"], "Alpha Elite Tier")
+        self.assertEqual(data["subscription_tier"]["price_usd"], 49.99)
 
 
 if __name__ == "__main__":
