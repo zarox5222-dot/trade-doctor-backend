@@ -91,16 +91,24 @@ def fetch_realtime_details(ticker: str) -> Dict[str, Any]:
         stock = yf.Ticker(ticker)
         info = stock.fast_info
 
+        # Safe dict mapping to guarantee attributes are safely retrieved from yfinance object
+        info_dict = {}
+        for k in ['currency', 'dayHigh', 'dayLow', 'exchange', 'fiftyDayAverage', 'lastPrice', 'lastVolume', 'marketCap', 'open', 'previousClose', 'quoteType', 'regularMarketPreviousClose', 'shares', 'tenDayAverageVolume', 'threeMonthAverageVolume', 'timezone', 'twoHundredDayAverage', 'yearChange', 'yearHigh', 'yearLow']:
+            try:
+                info_dict[k] = info[k]
+            except Exception:
+                info_dict[k] = None
+
         history_today = stock.history(period="1d")
         current_price = None
         if not history_today.empty:
             current_price = float(history_today["Close"].iloc[-1])
-        elif "lastPrice" in info:
-            current_price = info["lastPrice"]
-        elif "previousClose" in info:
-            current_price = info["previousClose"]
+        elif info_dict.get("lastPrice") is not None:
+            current_price = info_dict["lastPrice"]
+        elif info_dict.get("previousClose") is not None:
+            current_price = info_dict["previousClose"]
 
-        previous_close = info.get("previousClose", None)
+        previous_close = info_dict.get("previousClose")
         if previous_close is None and not history_today.empty:
             history_prev = stock.history(period="5d")
             if len(history_prev) > 1:
@@ -108,13 +116,13 @@ def fetch_realtime_details(ticker: str) -> Dict[str, Any]:
 
         return {
             "ticker": ticker,
-            "current_price": current_price if current_price is not None else info.get("last_price", None),
-            "open": info.get("open", None),
-            "day_high": info.get("dayHigh", None),
-            "day_low": info.get("dayLow", None),
+            "current_price": current_price if current_price is not None else info_dict.get("lastPrice"),
+            "open": info_dict.get("open"),
+            "day_high": info_dict.get("dayHigh"),
+            "day_low": info_dict.get("dayLow"),
             "previous_close": previous_close,
-            "volume": info.get("lastVolume", None) or info.get("volume", None),
-            "currency": info.get("currency", "USD")
+            "volume": info_dict.get("lastVolume"),
+            "currency": info_dict.get("currency", "USD") or "USD"
         }
     except Exception as e:
         print(f"Error fetching real-time details for ticker {ticker}: {e}")

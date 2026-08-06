@@ -133,9 +133,13 @@ def get_high_growth_assets():
     """
     List high-growth and momentum assets across Global and Indian markets.
     Implements a strict Premium Paywall / Access Gate.
+    Unlocked for paid members ('Pro' or 'VIP').
     """
     region = request.args.get("region", "all").strip().lower()
     sector = request.args.get("sector", "all").strip().lower()
+    user_role = request.args.get("subscription_role", "Free").strip()
+
+    is_paid_user = user_role in ["Pro", "VIP"]
 
     filtered_assets = []
     for asset in HIGH_GROWTH_ASSETS:
@@ -147,7 +151,8 @@ def get_high_growth_assets():
 
     enriched_results = []
     for index, asset in enumerate(filtered_assets):
-        is_locked = index >= 2
+        # Locked index starts at 2 for Free users, unlocked completely for Pro/VIP
+        is_locked = (index >= 2) and (not is_paid_user)
 
         asset_info = {
             "ticker": asset["ticker"],
