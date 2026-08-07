@@ -21,8 +21,13 @@ from ai_signal import generate_ai_signal, analyze_chart_image, ai_parse_screener
 app = Flask(__name__)
 CORS(app)
 
+# Supabase configuration setup
+app.config["SUPABASE_URL"] = os.environ.get("SUPABASE_URL") or "https://wsnkikllgvfgvhujwjii.supabase.co"
+app.config["SUPABASE_KEY"] = os.environ.get("SUPABASE_KEY")
+
 # In-memory stores
 FREE_SEARCH_HISTORY = {}  # Tracks IP search timestamps
+FREE_IMAGE_ANALYSIS_COUNT = {}  # Tracks IP image uploads (unlocked 2-3 free requests)
 SAVED_TRADE_JOURNAL = []  # Simulated AI Trade Journal DB
 TELEGRAM_SUBSCRIBERS = []  # Simulated VIP Telegram watchlist hookups
 
@@ -52,6 +57,7 @@ def health_check():
         "status": "healthy",
         "app": "Trade Doctor Backend API",
         "version": "1.4.0",
+        "supabase_connection": app.config["SUPABASE_URL"],
         "disclaimer": LEGAL_DISCLAIMER
     }), 200
 
@@ -247,16 +253,38 @@ def get_position_size():
 def post_analyze_chart():
     """
     Accepts screenshot chart uploads in base64 string encoding,
-    analyzes visual entry mistakes, and outputs educational alternatives.
+    analyzes visual entry mistakes, matches exactly 4 trading book patterns, and outputs educational alternatives.
+    Unlocks 3 FREE scans per user/IP before enforcing subscription gating.
     """
     req_data = request.get_json() or {}
     base64_image = req_data.get("image_base64", "").strip()
+    user_role = req_data.get("subscription_role", "Free").strip()
+    user_ip = request.remote_addr or "127.0.0.1"
 
     if not base64_image:
         return jsonify({
             "error": "Missing parameter: 'image_base64' is required.",
             "disclaimer": LEGAL_DISCLAIMER
         }), 400
+
+    is_premium = user_role in ["Pro", "VIP"]
+
+    if not is_premium:
+        # Enforce 3 free image scans rate limit
+        current_scans = FREE_IMAGE_ANALYSIS_COUNT.get(user_ip, 0)
+        if current_scans >= 3:
+            return jsonify({
+                "error": "Free tier visual chart analysis limit reached (3 scans unlocked). Please upgrade to Pro or VIP to continue.",
+                "is_locked": True,
+                "premium_upsell": {
+                    "text": "Unlock unlimited AI candlestick and 4-chart pattern reviews with Pro ($29.99/mo).",
+                    "price_usd": 29.99,
+                    "cta": "Unlock with Pro ($29.99/mo)"
+                },
+                "disclaimer": LEGAL_DISCLAIMER
+            }), 403
+        else:
+            FREE_IMAGE_ANALYSIS_COUNT[user_ip] = current_scans + 1
 
     analysis = analyze_chart_image(base64_image)
     analysis = _clean_nans_and_inf(analysis)
