@@ -1,5 +1,7 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+from flask_caching import Cache
+from supabase import create_client, Client
 import pandas as pd
 import numpy as np
 import os
@@ -21,15 +23,32 @@ from ai_signal import generate_ai_signal, analyze_chart_image, ai_parse_screener
 app = Flask(__name__)
 CORS(app)
 
-# Supabase configuration setup
-app.config["SUPABASE_URL"] = os.environ.get("SUPABASE_URL") or "https://wsnkikllgvfgvhujwjii.supabase.co"
-app.config["SUPABASE_KEY"] = os.environ.get("SUPABASE_KEY")
+# Cache Configuration (5 minutes / 300 seconds cache for yfinance/API endpoints)
+cache = Cache(app, config={
+    "CACHE_TYPE": "SimpleCache",
+    "CACHE_DEFAULT_TIMEOUT": 300
+})
 
-# In-memory stores
+# Supabase configuration setup
+SUPABASE_URL = os.environ.get("SUPABASE_URL") or "https://wsnkikllgvfgvhujwjii.supabase.co"
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+
+supabase_client = None
+if SUPABASE_KEY:
+    try:
+        supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    except Exception as e:
+        print(f"Warning: Failed to initialize Supabase client: {e}")
+
+# In-memory stores (used as fallbacks if Supabase is not configured)
 FREE_SEARCH_HISTORY = {}  # Tracks IP search timestamps
 FREE_IMAGE_ANALYSIS_COUNT = {}  # Tracks IP image uploads (unlocked 2-3 free requests)
 SAVED_TRADE_JOURNAL = []  # Simulated AI Trade Journal DB
 TELEGRAM_SUBSCRIBERS = []  # Simulated VIP Telegram watchlist hookups
+
+
+def get_supabase_client():
+    return supabase_client
 
 
 def _clean_nans_and_inf(val):
@@ -57,12 +76,13 @@ def health_check():
         "status": "healthy",
         "app": "Trade Doctor Backend API",
         "version": "1.4.0",
-        "supabase_connection": app.config["SUPABASE_URL"],
+        "supabase_connection": SUPABASE_URL,
         "disclaimer": LEGAL_DISCLAIMER
     }), 200
 
 
 @app.route("/api/market-data", methods=["GET"])
+@cache.cached(timeout=300, query_string=True)
 def get_market_data():
     """
     Fetch historical market data, technical indicators, Support/Resistance zones,
@@ -270,8 +290,26 @@ def post_analyze_chart():
     is_premium = user_role in ["Pro", "VIP"]
 
     if not is_premium:
-        # Enforce 3 free image scans rate limit
-        current_scans = FREE_IMAGE_ANALYSIS_COUNT.get(user_ip, 0)
+        # Enforce 3 free image scans rate limit using user_usage_limits in Supabase or memory fallback
+        current_scans = 0
+        db = get_supabase_client()
+        if db:
+            try:
+                res = db.table("user_usage_limits").select("image_analysis_count").eq("ip_address", user_ip).limit(1).execute()
+                if res.data:
+                    current_scans = res.data[0]["image_analysis_count"]
+                else:
+                    db.table("user_usage_limits").insert({
+                        "ip_address": user_ip,
+                        "image_analysis_count": 0,
+                        "created_at": datetime.datetime.now().isoformat()
+                    }).execute()
+            except Exception as db_err:
+                print(f"Supabase user_usage_limits read error, falling back to memory: {db_err}")
+                current_scans = FREE_IMAGE_ANALYSIS_COUNT.get(user_ip, 0)
+        else:
+            current_scans = FREE_IMAGE_ANALYSIS_COUNT.get(user_ip, 0)
+
         if current_scans >= 3:
             return jsonify({
                 "error": "Free tier visual chart analysis limit reached (3 scans unlocked). Please upgrade to Pro or VIP to continue.",
@@ -284,7 +322,19 @@ def post_analyze_chart():
                 "disclaimer": LEGAL_DISCLAIMER
             }), 403
         else:
-            FREE_IMAGE_ANALYSIS_COUNT[user_ip] = current_scans + 1
+            # Increment usage
+            next_scans = current_scans + 1
+            db = get_supabase_client()
+            if db:
+                try:
+                    db.table("user_usage_limits").update({
+                        "image_analysis_count": next_scans
+                    }).eq("ip_address", user_ip).execute()
+                except Exception as db_err:
+                    print(f"Supabase user_usage_limits write error, falling back to memory: {db_err}")
+                    FREE_IMAGE_ANALYSIS_COUNT[user_ip] = next_scans
+            else:
+                FREE_IMAGE_ANALYSIS_COUNT[user_ip] = next_scans
 
     analysis = analyze_chart_image(base64_image)
     analysis = _clean_nans_and_inf(analysis)
@@ -319,7 +369,7 @@ def get_market_gaps_trends():
 def post_screener_ai_search():
     """
     Conversational Natural Language Screener Endpoint.
-    Free tier limits to 1 search per 24 hours based on mock IP user tracking.
+    Free tier limits to 1 search per 24 hours based on mock IP/Supabase user tracking.
     Pro Tier ($29.99/mo) and above has unlimited search queries.
     """
     req_data = request.get_json() or {}
@@ -338,24 +388,65 @@ def post_screener_ai_search():
     # Role-based search checks
     if user_role == "Free":
         now = datetime.datetime.now()
-        last_search_time = FREE_SEARCH_HISTORY.get(user_ip)
-        if last_search_time:
-            delta = now - last_search_time
-            if delta.total_seconds() < 86400: # 24 Hours limits
-                remaining_seconds = int(86400 - delta.total_seconds())
-                return jsonify({
-                    "error": "Free tier limit reached (1 Search per 24 hours).",
-                    "is_locked": True,
-                    "remaining_seconds": remaining_seconds,
-                    "premium_upsell": {
-                        "text": "Upgrade to Pro for unlimited Natural Language AI Searches.",
-                        "price_usd": 29.99,
-                        "cta": "Unlock with Pro ($29.99/mo)"
-                    },
-                    "disclaimer": LEGAL_DISCLAIMER
-                }), 403
+        is_rate_limited = False
+        remaining_seconds = 86400
 
-        FREE_SEARCH_HISTORY[user_ip] = now
+        db = get_supabase_client()
+        if db:
+            try:
+                # Query user_searches table
+                res = db.table("user_searches").select("created_at").eq("ip_address", user_ip).order("created_at", desc=True).limit(1).execute()
+                if res.data:
+                    last_search_str = res.data[0]["created_at"]
+                    # parse with iso format
+                    last_search_time = datetime.datetime.fromisoformat(last_search_str.replace("Z", "+00:00")).replace(tzinfo=None)
+                    delta = now - last_search_time
+                    if delta.total_seconds() < 86400:
+                        is_rate_limited = True
+                        remaining_seconds = int(86400 - delta.total_seconds())
+            except Exception as db_err:
+                print(f"Supabase user_searches read error, falling back to memory: {db_err}")
+                last_search_time = FREE_SEARCH_HISTORY.get(user_ip)
+                if last_search_time:
+                    delta = now - last_search_time
+                    if delta.total_seconds() < 86400:
+                        is_rate_limited = True
+                        remaining_seconds = int(86400 - delta.total_seconds())
+        else:
+            last_search_time = FREE_SEARCH_HISTORY.get(user_ip)
+            if last_search_time:
+                delta = now - last_search_time
+                if delta.total_seconds() < 86400:
+                    is_rate_limited = True
+                    remaining_seconds = int(86400 - delta.total_seconds())
+
+        if is_rate_limited:
+            return jsonify({
+                "error": "Free tier limit reached (1 Search per 24 hours).",
+                "is_locked": True,
+                "remaining_seconds": remaining_seconds,
+                "premium_upsell": {
+                    "text": "Upgrade to Pro for unlimited Natural Language AI Searches.",
+                    "price_usd": 29.99,
+                    "cta": "Unlock with Pro ($29.99/mo)"
+                },
+                "disclaimer": LEGAL_DISCLAIMER
+            }), 403
+
+        # Record search
+        db = get_supabase_client()
+        if db:
+            try:
+                db.table("user_searches").insert({
+                    "ip_address": user_ip,
+                    "query": query,
+                    "created_at": now.isoformat()
+                }).execute()
+            except Exception as db_err:
+                print(f"Supabase user_searches write error, falling back to memory: {db_err}")
+                FREE_SEARCH_HISTORY[user_ip] = now
+        else:
+            FREE_SEARCH_HISTORY[user_ip] = now
 
     # Execute conversational query parser
     parsed_bounds = ai_parse_screener_query(query)
@@ -507,7 +598,7 @@ def get_trade_diagnostic():
 @app.route("/api/trade-journal", methods=["POST"])
 def post_trade_journal():
     """
-    Pro feature ($29.99/mo) and above: Save user trade records to the simulated DB.
+    Pro feature ($29.99/mo) and above: Save user trade records to Supabase or simulated DB.
     """
     req_data = request.get_json() or {}
     user_role = req_data.get("subscription_role", "Free").strip()
@@ -529,13 +620,25 @@ def post_trade_journal():
         }), 400
 
     record = {
-        "id": len(SAVED_TRADE_JOURNAL) + 1,
         "ticker": ticker,
         "entry_price": float(entry_price),
         "comments": comments,
-        "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        "created_at": datetime.datetime.now().isoformat()
     }
-    SAVED_TRADE_JOURNAL.append(record)
+
+    db = get_supabase_client()
+    if db:
+        try:
+            res = db.table("trade_journals").insert(record).execute()
+            if res.data:
+                record = res.data[0]
+        except Exception as db_err:
+            print(f"Supabase trade_journals insert failed, falling back to memory: {db_err}")
+            record["id"] = len(SAVED_TRADE_JOURNAL) + 1
+            SAVED_TRADE_JOURNAL.append(record)
+    else:
+        record["id"] = len(SAVED_TRADE_JOURNAL) + 1
+        SAVED_TRADE_JOURNAL.append(record)
 
     return jsonify({
         "success": True,

@@ -121,29 +121,12 @@ def generate_ai_signal(ticker: str, df: pd.DataFrame) -> Dict[str, Any]:
 
     try:
         model = genai.GenerativeModel("gemini-1.5-flash")
-        response = model.generate_content(prompt)
+        response = model.generate_content(
+            prompt,
+            generation_config={"response_mime_type": "application/json"}
+        )
         text = response.text.strip()
-
-        if text.startswith("```json"):
-            text = text[7:]
-        if text.startswith("```"):
-            text = text[3:]
-        if text.endswith("```"):
-            text = text[:-3]
-        text = text.strip()
-
-        try:
-            ai_data = json.loads(text)
-        except json.JSONDecodeError as e:
-            try:
-                ai_data = json.loads(text[:e.pos])
-            except Exception:
-                start_idx = text.find("{")
-                end_idx = text.rfind("}")
-                if start_idx != -1 and end_idx != -1:
-                    ai_data = json.loads(text[start_idx:end_idx + 1])
-                else:
-                    raise e
+        ai_data = json.loads(text)
 
         return {
             "ticker": ticker,
@@ -249,17 +232,11 @@ def analyze_chart_image(base64_image_data: str) -> Dict[str, Any]:
         """
 
         model = genai.GenerativeModel("gemini-1.5-flash")
-        response = model.generate_content([image_part, prompt])
+        response = model.generate_content(
+            [image_part, prompt],
+            generation_config={"response_mime_type": "application/json"}
+        )
         text = response.text.strip()
-
-        if text.startswith("```json"):
-            text = text[7:]
-        if text.startswith("```"):
-            text = text[3:]
-        if text.endswith("```"):
-            text = text[:-3]
-        text = text.strip()
-
         ai_data = json.loads(text)
 
         # Guard array length
@@ -374,17 +351,11 @@ def ai_parse_screener_query(user_query: str) -> Dict[str, Any]:
         """
 
         model = genai.GenerativeModel("gemini-1.5-flash")
-        response = model.generate_content(prompt)
+        response = model.generate_content(
+            prompt,
+            generation_config={"response_mime_type": "application/json"}
+        )
         text = response.text.strip()
-
-        if text.startswith("```json"):
-            text = text[7:]
-        if text.startswith("```"):
-            text = text[3:]
-        if text.endswith("```"):
-            text = text[:-3]
-        text = text.strip()
-
         ai_data = json.loads(text)
         return {
             "rsi_less_than": ai_data.get("rsi_less_than"),
