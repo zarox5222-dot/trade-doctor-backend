@@ -3,7 +3,7 @@ import { Sparkles, Volume2, VolumeX, Lock, ShieldAlert, Zap, Radio, ChevronRight
 
 interface HudTargetSphereProps {
   ticker?: string;
-  subscriptionTier?: 'free' | 'pro' | 'vip';
+  subscriptionTier?: 'free' | 'pro';
   onOpenUpgradeModal?: (reason?: string) => void;
 }
 
@@ -12,8 +12,8 @@ export const HudTargetSphere: React.FC<HudTargetSphereProps> = ({
   subscriptionTier = 'free',
   onOpenUpgradeModal,
 }) => {
-  const isPro = subscriptionTier === 'pro' || subscriptionTier === 'vip';
-  const isVip = subscriptionTier === 'vip';
+  const isPro = subscriptionTier === 'pro';
+  const isVip = subscriptionTier === 'pro';
 
   const [selectedTicker, setSelectedTicker] = useState<string>(ticker);
   const [data, setData] = useState<any>(null);

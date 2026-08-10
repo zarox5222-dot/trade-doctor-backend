@@ -9,7 +9,7 @@ interface HeaderProps {
   onSelectPreset: (preset: PresetChart) => void;
   language: Language;
   setLanguage: (lang: Language) => void;
-  subscriptionTier?: 'free' | 'pro' | 'vip';
+  subscriptionTier?: 'free' | 'pro';
   user?: { email: string; name?: string; provider?: string } | null;
   onOpenAuth?: (mode: 'signup' | 'login') => void;
   onSignOut?: () => void;
@@ -102,14 +102,9 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="bg-emerald-50 text-emerald-700 text-[11px] font-bold px-2.5 py-0.5 rounded-full border border-emerald-200/80 flex items-center gap-1">
                   <Activity className="w-3 h-3 animate-pulse text-emerald-600" /> AI Vision 3.6
                 </span>
-                {subscriptionTier === 'vip' && (
-                  <span className="bg-amber-950 text-amber-300 text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full border border-amber-500/50 flex items-center gap-1 animate-pulse">
-                    <Crown className="w-3 h-3 fill-amber-400 text-amber-400" /> VIP Member ($69.99)
-                  </span>
-                )}
                 {subscriptionTier === 'pro' && (
                   <span className="bg-cyan-950 text-cyan-300 text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full border border-cyan-500/50 flex items-center gap-1">
-                    <Sparkles className="w-3 h-3 text-cyan-400" /> Pro Trader ($29.99)
+                    <Sparkles className="w-3 h-3 text-cyan-400 animate-pulse" /> Complete Access ($19.99)
                   </span>
                 )}
               </div>

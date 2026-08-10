@@ -18,7 +18,7 @@ interface MatrixItem {
 }
 
 interface SmartMoneyMatrixGridProps {
-  subscriptionTier?: 'free' | 'pro' | 'vip';
+  subscriptionTier?: 'free' | 'pro';
   onOpenUpgradeModal?: (reason?: string) => void;
 }
 
@@ -26,7 +26,7 @@ export const SmartMoneyMatrixGrid: React.FC<SmartMoneyMatrixGridProps> = ({
   subscriptionTier = 'free',
   onOpenUpgradeModal,
 }) => {
-  const isVip = subscriptionTier === 'vip';
+  const isVip = subscriptionTier === 'pro';
 
   const [items, setItems] = useState<MatrixItem[]>([]);
   const [whaleAlerts, setWhaleAlerts] = useState<string[]>([]);
@@ -37,10 +37,31 @@ export const SmartMoneyMatrixGrid: React.FC<SmartMoneyMatrixGridProps> = ({
   const fetchFlowData = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/smart-money-flow?subscription_role=${isVip ? 'VIP' : subscriptionTier === 'pro' ? 'Pro' : 'Free'}`);
+      const res = await fetch(`/api/smart-money/flow?subscription_role=${isVip ? 'VIP' : 'Free'}`);
       const json = await res.json();
-      if (json.flowItems) setItems(json.flowItems);
-      if (json.whaleAlerts) setWhaleAlerts(json.whaleAlerts);
+      if (json.heatmap) {
+        // Map backend heatmap parameters to frontend MatrixItem keys
+        const mapped = json.heatmap.map((item: any) => ({
+          ticker: item.ticker,
+          name: item.name,
+          sector: item.sector || 'SaaS Assets',
+          market: item.market || 'Global',
+          currentPrice: item.price_change_pct ? 150.0 + item.price_change_pct : 150.0,
+          priceChange24h: item.price_change_pct || 0.0,
+          volumeMultiplier: item.volume_z_score || 1.2,
+          activityType: item.label || 'Accumulation',
+          heatmapIntensity: item.volume_z_score >= 2.5 ? 'Extreme' : 'Moderate',
+          zScore: item.volume_z_score || 1.2,
+          rsi: 45,
+          aiExplanation: item.label || 'Stable price flow.',
+          is_locked: item.label === '[LOCKED]'
+        }));
+        setItems(mapped);
+      }
+      if (json.whale_alerts) {
+        const msgs = json.whale_alerts.map((alert: any) => alert.message);
+        setWhaleAlerts(msgs);
+      }
     } catch (err) {
       console.error('Failed to load matrix flow data', err);
     } finally {
@@ -237,12 +258,12 @@ export const SmartMoneyMatrixGrid: React.FC<SmartMoneyMatrixGridProps> = ({
                       <button
                         onClick={() => {
                           if (onOpenUpgradeModal) {
-                            onOpenUpgradeModal('🔒 VIP Feature: Dark Pool Smart Money Flow Matrix requires VIP Inner Circle ($69.99/mo).');
+                            onOpenUpgradeModal('🔒 Premium Feature: Dark Pool Smart Money Flow Matrix requires complete premium access ($19.99/mo).');
                           }
                         }}
                         className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-emerald-400 text-slate-950 font-mono font-bold text-xs shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer"
                       >
-                        <Lock className="w-3.5 h-3.5" /> Unlock Smart Money Detail ($69.99/mo)
+                        <Lock className="w-3.5 h-3.5" /> Unlock Smart Money Detail ($19.99/mo)
                       </button>
                     </div>
                   )}

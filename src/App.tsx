@@ -38,7 +38,7 @@ export function App() {
 
   const [freeSearchCount, setFreeSearchCount] = useState<number>(0);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState<boolean>(false);
-  const [modalTriggerText, setModalTriggerText] = useState<string>('🔒 VIP Feature: Instant Telegram Alerts & Smart Money Flow require VIP Inner Circle ($69.99/mo).');
+  const [modalTriggerText, setModalTriggerText] = useState<string>('🔒 Premium Feature: This premium tool requires complete unrestricted access ($19.99/mo).');
 
   const t = TRANSLATIONS[language] || TRANSLATIONS['en'];
 
@@ -122,7 +122,7 @@ export function App() {
     if (customReason) {
       setModalTriggerText(customReason);
     } else {
-      setModalTriggerText('🔒 VIP Feature: Instant Telegram Alerts & Smart Money Flow require VIP Inner Circle ($69.99/mo).');
+      setModalTriggerText('🔒 Premium Feature: Complete Access is required ($19.99/mo).');
     }
     setIsUpgradeModalOpen(true);
   };
@@ -164,7 +164,7 @@ export function App() {
               <div className="flex items-center gap-3">
                 <span className="flex items-center gap-1.5 text-emerald-400 font-bold">
                   <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  Active Plan: <span className="uppercase tracking-wider font-extrabold text-white">{subscriptionTier} TIER</span>
+                    Active Plan: <span className="uppercase tracking-wider font-extrabold text-white">PREMIUM COMPLETE TIER</span>
                 </span>
                 <span className="text-slate-500">•</span>
                 <span className="flex items-center gap-1.5 text-amber-300 font-bold">
@@ -205,7 +205,7 @@ export function App() {
               <section id="smart-money-matrix">
                 <SmartMoneyMatrixGrid
                   subscriptionTier={subscriptionTier}
-                  onOpenUpgradeModal={(reason) => openPaywallModal(reason || "🔒 VIP Feature: Dark Pool Smart Money Flow Matrix requires VIP Inner Circle ($69.99/mo).")}
+                  onOpenUpgradeModal={(reason) => openPaywallModal(reason || "🔒 Premium Feature: Dark Pool Smart Money Flow Matrix requires complete unrestricted access ($19.99/mo).")}
                 />
               </section>
 
@@ -245,7 +245,7 @@ export function App() {
               subscriptionTier={subscriptionTier}
               freeSearchCount={freeSearchCount}
               onIncrementSearchCount={() => setFreeSearchCount((prev) => prev + 1)}
-              onOpenUpgradeModal={(reason) => openPaywallModal(reason || "🔒 Starter ($19.99), Pro ($29.99), or VIP ($69.99) required for Unlimited AI Searches.")}
+              onOpenUpgradeModal={(reason) => openPaywallModal(reason || "🔒 Premium complete access ($19.99) required for Unlimited AI Searches.")}
             />
           )}
 
@@ -253,11 +253,11 @@ export function App() {
             <div className="space-y-8">
               <SmartMoneyMatrixGrid
                 subscriptionTier={subscriptionTier}
-                onOpenUpgradeModal={(reason) => openPaywallModal(reason || "🔒 VIP Feature: Live Dark Pool Whale Flow requires VIP Inner Circle ($69.99/mo).")}
+                onOpenUpgradeModal={(reason) => openPaywallModal(reason || "🔒 Premium Feature: Live Dark Pool Whale Flow requires complete unrestricted access ($19.99/mo).")}
               />
               <SmartMoneyTracker
-                isPremium={subscriptionTier === 'vip'}
-                onOpenUpgradeModal={() => openPaywallModal("🔒 VIP Feature: Institutional Tracker requires VIP Inner Circle ($69.99/mo).")}
+                isPremium={subscriptionTier === 'pro'}
+                onOpenUpgradeModal={() => openPaywallModal("🔒 Premium Feature: Institutional Tracker requires complete unrestricted access ($19.99/mo).")}
               />
             </div>
           )}
@@ -269,7 +269,7 @@ export function App() {
           {activeTab === 'high-growth' && (
             <HighGrowthScanner
               subscriptionTier={subscriptionTier}
-              onOpenUpgradeModal={(reason) => openPaywallModal(reason || "🔒 Unlock All 55 Stocks ($19.99/mo Starter Access)")}
+              onOpenUpgradeModal={(reason) => openPaywallModal(reason || "🔒 Unlock All 55 Stocks ($19.99/mo Premium Access)")}
             />
           )}
 
