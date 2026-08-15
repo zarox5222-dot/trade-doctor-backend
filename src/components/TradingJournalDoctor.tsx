@@ -40,7 +40,7 @@ export const TradingJournalDoctor: React.FC = () => {
       });
 
       if (!res.ok) {
-        throw new Error('রিস্ক হিসাব করতে সমস্যা হয়েছে।');
+        throw new Error('Error calculating risk.');
       }
 
       const data: TradeRiskDiagnosis = await res.json();
@@ -67,10 +67,10 @@ export const TradingJournalDoctor: React.FC = () => {
           </div>
           <div>
             <h2 className="text-lg font-black text-slate-900">
-              রিস্ক ম্যানেজমেন্ট ও পজিশন সাইজ ডক্টর (Risk Doctor)
+              Risk Management & Position Sizing Calculator (Risk Doctor)
             </h2>
             <p className="text-xs text-slate-500 font-medium">
-              ট্রেডে লিকুইডেশন এড়াতে সঠিক ডলার রিস্ক, লট/কয়েন সাইজ ও রিস্ক-রিওয়ার্ড হিসাব করুন
+              Calculate exact dollar risk, position sizing, and risk-to-reward ratio to prevent account liquidation.
             </p>
           </div>
         </div>
@@ -80,7 +80,7 @@ export const TradingJournalDoctor: React.FC = () => {
 
           <div>
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1 flex items-center gap-1">
-              <DollarSign className="w-3.5 h-3.5 text-emerald-600" /> মোট অ্যাকাউন্ট ব্যালেন্স ($)
+              <DollarSign className="w-3.5 h-3.5 text-emerald-600" /> Total Account Balance ($)
             </label>
             <input
               type="number"
@@ -93,7 +93,7 @@ export const TradingJournalDoctor: React.FC = () => {
 
           <div>
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1 flex items-center gap-1">
-              <Percent className="w-3.5 h-3.5 text-amber-600" /> রিস্ক শতাংশ (% Target)
+              <Percent className="w-3.5 h-3.5 text-amber-600" /> Risk Target (%)
             </label>
             <input
               type="number"
@@ -108,21 +108,21 @@ export const TradingJournalDoctor: React.FC = () => {
 
           <div>
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1 flex items-center gap-1">
-              <TrendingUp className="w-3.5 h-3.5 text-cyan-600" /> ট্রেডের ডিরেকশন
+              <TrendingUp className="w-3.5 h-3.5 text-cyan-600" /> Trade Direction
             </label>
             <select
               value={tradeDirection}
               onChange={(e) => setTradeDirection(e.target.value as any)}
               className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-emerald-500 font-bold shadow-inner"
             >
-              <option value="Long / Buy">Long / Buy (বাই)</option>
-              <option value="Short / Sell">Short / Sell (শর্ট)</option>
+              <option value="Long / Buy">Long / Buy</option>
+              <option value="Short / Sell">Short / Sell</option>
             </select>
           </div>
 
           <div>
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-              এন্ট্রি প্রাইস / প্রবেশ মূল্য ($)
+              Entry Price ($)
             </label>
             <input
               type="number"
@@ -135,7 +135,7 @@ export const TradingJournalDoctor: React.FC = () => {
 
           <div>
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-              স্টপ লস প্রাইস ($)
+              Stop Loss Price ($)
             </label>
             <input
               type="number"
@@ -148,7 +148,7 @@ export const TradingJournalDoctor: React.FC = () => {
 
           <div>
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-              টেক প্রফিট প্রাইস ($)
+              Take Profit Price ($)
             </label>
             <input
               type="number"
@@ -161,7 +161,7 @@ export const TradingJournalDoctor: React.FC = () => {
 
           <div>
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-              লিভারেজ (Leverage)
+              Leverage
             </label>
             <select
               value={leverage}
@@ -188,14 +188,14 @@ export const TradingJournalDoctor: React.FC = () => {
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div className="flex items-center gap-2">
               <Calculator className="w-5 h-5 text-emerald-600" />
-              <h3 className="text-base font-black text-slate-900">হিসাবকৃত পজিশন সাইজ ও রিস্ক ডায়াগনোসিস</h3>
+              <h3 className="text-base font-black text-slate-900">Calculated Position Size & Risk Diagnosis</h3>
             </div>
             <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
               diagnosis.isRiskSafe
                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                 : 'bg-rose-50 text-rose-700 border-rose-200'
             }`}>
-              {diagnosis.isRiskSafe ? '✅ নিরাপদ রিস্ক রেশিও' : '⚠️ উচ্চ ঝুঁকি / অনিয়ন্ত্রিত ট্রেড'}
+              {diagnosis.isRiskSafe ? '✅ Safe Risk Ratio' : '⚠️ High Risk / Uncontrolled Trade'}
             </span>
           </div>
 
@@ -203,39 +203,39 @@ export const TradingJournalDoctor: React.FC = () => {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
 
             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-1">
-              <span className="text-[10px] text-slate-500 font-bold uppercase">সর্বোচ্চ ডলার লস রিস্ক</span>
+              <span className="text-[10px] text-slate-500 font-bold uppercase">Max Dollar Risk</span>
               <div className="text-xl font-mono font-bold text-rose-600">${diagnosis.dollarAmountAtRisk}</div>
-              <span className="text-[10px] text-slate-500 font-medium">মূলধনের {riskPercentPerTrade}%</span>
+              <span className="text-[10px] text-slate-500 font-medium">{riskPercentPerTrade}% of Capital</span>
             </div>
 
             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-1">
-              <span className="text-[10px] text-slate-500 font-bold uppercase">প্রস্তাবিত পজিশন সাইজ</span>
+              <span className="text-[10px] text-slate-500 font-bold uppercase">Recommended Position Size</span>
               <div className="text-xl font-mono font-bold text-emerald-700">${diagnosis.maxPositionSize}</div>
               <span className="text-[10px] text-slate-500 font-medium">{diagnosis.maxContractsOrCoins} Coins/Lots</span>
             </div>
 
             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-1">
-              <span className="text-[10px] text-slate-500 font-bold uppercase">আশাবাদী প্রফিট (Target)</span>
+              <span className="text-[10px] text-slate-500 font-bold uppercase">Estimated Target Profit</span>
               <div className="text-xl font-mono font-bold text-teal-700">+${diagnosis.potentialProfit}</div>
-              <span className="text-[10px] text-slate-500 font-medium">যদি TP টাচ করে</span>
+              <span className="text-[10px] text-slate-500 font-medium">If Take Profit Hit</span>
             </div>
 
             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-1">
-              <span className="text-[10px] text-slate-500 font-bold uppercase">রিস্ক-টু-রিওয়ার্ড রেশিও</span>
+              <span className="text-[10px] text-slate-500 font-bold uppercase">Risk-to-Reward Ratio</span>
               <div className="text-xl font-mono font-bold text-cyan-700">1:{diagnosis.riskRewardRatio}</div>
-              <span className="text-[10px] text-slate-500 font-medium">{diagnosis.riskRewardRatio >= 2 ? 'অসাধারণ (1:2+)' : 'কমপক্ষে ১:২ টার্গেট করুন'}</span>
+              <span className="text-[10px] text-slate-500 font-medium">{diagnosis.riskRewardRatio >= 2 ? 'Excellent (1:2+)' : 'Aim for at least 1:2'}</span>
             </div>
 
           </div>
 
           {/* Warnings List */}
-          {diagnosis.warningsBengali.length > 0 && (
+          {diagnosis.warningsEnglish && diagnosis.warningsEnglish.length > 0 && (
             <div className="bg-rose-50 border border-rose-200 p-4 rounded-2xl space-y-2">
               <span className="text-xs font-bold text-rose-800 uppercase tracking-wider flex items-center gap-1.5">
-                <AlertTriangle className="w-4 h-4 text-rose-600" /> ট্রেডিং রিস্ক সতর্কতা:
+                <AlertTriangle className="w-4 h-4 text-rose-600" /> Trading Risk Warnings:
               </span>
               <ul className="space-y-1.5 text-xs text-slate-700 font-medium">
-                {diagnosis.warningsBengali.map((warn, wIdx) => (
+                {diagnosis.warningsEnglish.map((warn, wIdx) => (
                   <li key={wIdx} className="leading-relaxed">
                     {warn}
                   </li>
@@ -247,7 +247,7 @@ export const TradingJournalDoctor: React.FC = () => {
           {/* Recommendations */}
           <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-2 text-xs">
             <span className="font-bold text-emerald-800 uppercase tracking-wider block">
-              🛡️ ট্রেড ডক্টরের ডিসিপ্লিন পরামর্শ:
+              🛡️ Trade Doctor Discipline Advice:
             </span>
             <ul className="space-y-1.5 text-slate-700 font-medium">
               {diagnosis.recommendations.map((rec, rIdx) => (

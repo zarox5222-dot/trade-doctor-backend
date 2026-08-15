@@ -9,7 +9,6 @@ import {
   Zap,
   Sparkles,
   RefreshCw,
-  Info,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -46,13 +45,13 @@ export const MarketScanner: React.FC = () => {
       const res = await fetch(`/api/analyze-ticker?ticker=${encodeURIComponent(tickerToFetch)}`);
       if (!res.ok) {
         const errData = await res.json();
-        throw new Error(errData.error || 'টিকার তথ্য অ্যানালাইসিস ব্যর্থ হয়েছে।');
+        throw new Error(errData.error || 'Ticker analysis failed.');
       }
 
       const data: TickerAnalysisResult = await res.json();
       setResult(data);
     } catch (err: any) {
-      setError(err.message || 'নেটওয়ার্ক ত্রুটি।');
+      setError(err.message || 'Network connection error.');
     } finally {
       setIsLoading(false);
     }
@@ -90,10 +89,10 @@ export const MarketScanner: React.FC = () => {
           <div>
             <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
               <LineChartIcon className="w-5 h-5 text-emerald-600" />
-              টেকনিক্যাল মার্কেট ইন্ডিকেটর স্ক্যানার
+              Technical Market Indicator Scanner
             </h2>
             <p className="text-xs text-slate-500 font-medium">
-              RSI, MACD, Moving Average এবং Gemini AI রিয়েল-টাইম মার্কেট সিগন্যাল
+              Real-time RSI, MACD, Moving Averages, and Gemini AI Trade Signals
             </p>
           </div>
 
@@ -125,7 +124,7 @@ export const MarketScanner: React.FC = () => {
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
             <input
               type="text"
-              placeholder="অন্য যেকোনো সিম্বল লিখুন (যেমন: SOL-USD, AMZN, MSFT, NIFTY50)"
+              placeholder="Search symbol (e.g. SOL-USD, AMZN, MSFT, NIFTY50)..."
               value={customTicker}
               onChange={(e) => setCustomTicker(e.target.value)}
               className="w-full bg-slate-50 border border-slate-300 rounded-2xl pl-10 pr-4 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-500 font-medium shadow-inner"
@@ -136,7 +135,7 @@ export const MarketScanner: React.FC = () => {
             disabled={isLoading || !customTicker.trim()}
             className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-2xl transition-all cursor-pointer disabled:opacity-50 shadow-xs"
           >
-            স্ক্যান করুন
+            Scan Ticker
           </button>
         </form>
       </div>
@@ -145,7 +144,7 @@ export const MarketScanner: React.FC = () => {
         <div className="bg-white border border-slate-200/90 rounded-3xl p-12 text-center space-y-3 shadow-sm">
           <div className="w-8 h-8 border-3 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto" />
           <p className="text-xs text-slate-600 font-bold">
-            {selectedTicker} এর রিয়েল-টাইম চার্ট ও টেকনিক্যাল ইন্ডিকেটর ডাটা লোড হচ্ছে...
+            Loading real-time price history & technical diagnostics for {selectedTicker}...
           </p>
         </div>
       )}
@@ -185,7 +184,7 @@ export const MarketScanner: React.FC = () => {
                 className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 rounded-xl text-xs font-bold flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
               >
                 <RefreshCw className="w-3.5 h-3.5 text-emerald-600" />
-                <span>রিফ্রেশ ডাটা</span>
+                <span>Refresh Data</span>
               </button>
 
             </div>
@@ -207,13 +206,13 @@ export const MarketScanner: React.FC = () => {
               </div>
 
               <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200">
-                <span className="text-slate-500 text-[10px] uppercase font-bold">সাপোর্ট লেভেল</span>
+                <span className="text-slate-500 text-[10px] uppercase font-bold">Support Level</span>
                 <div className="text-sm font-mono font-bold text-emerald-700 mt-0.5">${result.supportLevel}</div>
                 <span className="text-[10px] text-slate-500 font-medium">Key Demand Zone</span>
               </div>
 
               <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200">
-                <span className="text-slate-500 text-[10px] uppercase font-bold">রেজিস্ট্যান্স লেভেল</span>
+                <span className="text-slate-500 text-[10px] uppercase font-bold">Resistance Level</span>
                 <div className="text-sm font-mono font-bold text-rose-600 mt-0.5">${result.resistanceLevel}</div>
                 <span className="text-[10px] text-slate-500 font-medium">Key Supply Zone</span>
               </div>
@@ -225,7 +224,7 @@ export const MarketScanner: React.FC = () => {
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                 <Activity className="w-4.5 h-4.5 text-emerald-600" />
-                মূল্য ও ভলিউম ট্রেন্ড চার্ট (Price & Volume Trend)
+                Price & Volume Trend Chart
               </h3>
               <span className="text-[11px] text-slate-500 font-mono font-bold">30-Day Historical Data</span>
             </div>
@@ -257,25 +256,22 @@ export const MarketScanner: React.FC = () => {
           <div className="bg-white border border-slate-200/90 rounded-3xl p-6 shadow-sm space-y-4">
             <h3 className="text-base font-black text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-3">
               <Zap className="w-5 h-5 text-emerald-600" />
-              Gemini 3.6 AI ট্রেড লজিক ও বাংলা ব্যাখ্যা
+              Gemini AI Quantitative Analysis
             </h3>
 
             <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-3">
               <p className="text-xs sm:text-sm text-slate-800 leading-relaxed font-medium">
-                {result.rationaleBengali}
+                {result.rationaleEnglish}
               </p>
-              <div className="text-xs text-slate-500 font-mono pt-2 border-t border-slate-200">
-                English Summary: {result.rationaleEnglish}
-              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 flex justify-between items-center">
-                <span className="text-slate-600 font-bold">প্রস্তাবিত স্টপ লস (Stop Loss):</span>
+                <span className="text-slate-600 font-bold">Suggested Stop Loss:</span>
                 <span className="font-mono font-bold text-rose-600">${result.suggestedStopLoss}</span>
               </div>
               <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 flex justify-between items-center">
-                <span className="text-slate-600 font-bold">প্রস্তাবিত টেক প্রফিট (Take Profit):</span>
+                <span className="text-slate-600 font-bold">Suggested Take Profit:</span>
                 <span className="font-mono font-bold text-emerald-700">${result.suggestedTakeProfit}</span>
               </div>
             </div>

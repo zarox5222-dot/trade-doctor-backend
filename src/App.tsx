@@ -17,14 +17,14 @@ import { PricingTable, SubscriptionTier } from './components/PricingTable';
 import { DisclaimerBanner } from './components/DisclaimerBanner';
 import { PresetChart } from './data/presetCharts';
 import { Language, TRANSLATIONS } from './data/translations';
-import { ShieldCheck, Activity, Clock, RefreshCw, Crown, Sparkles, CheckCircle2, Globe } from 'lucide-react';
+import { ShieldCheck, Activity, Clock, RefreshCw, CheckCircle2 } from 'lucide-react';
 
 const ONE_MONTH_MS = 30 * 24 * 60 * 60 * 1000; // Exactly 30 days in milliseconds
 
 export function App() {
   const [activeTab, setActiveTab] = useState<'hud' | 'canvas' | 'vision' | 'screener' | 'smartMoney' | 'scanner' | 'risk' | 'guide' | 'high-growth'>('hud');
   const [selectedPreset, setSelectedPreset] = useState<PresetChart | null>(null);
-  const [language, setLanguage] = useState<Language>('en'); // Default to English as requested
+  const [language, setLanguage] = useState<Language>('en'); // Default to English
 
   // User Auth & Session state
   const [user, setUser] = useState<{ email: string; name?: string; provider?: string } | null>(null);
@@ -79,6 +79,14 @@ export function App() {
     setSecondsRemaining(0);
   };
 
+  const handleDeleteAccount = () => {
+    setUser(null);
+    setSubscriptionTier('free');
+    setExpiresAt(null);
+    setSecondsRemaining(0);
+    setIsAuthModalOpen(false);
+  };
+
   // Live second-by-second countdown timer for 1 month subscription
   useEffect(() => {
     if (!expiresAt || subscriptionTier === 'free') return;
@@ -86,7 +94,6 @@ export function App() {
     const interval = setInterval(() => {
       const diff = Math.floor((expiresAt - Date.now()) / 1000);
       if (diff <= 0) {
-        // Exactly 30 days passed - revert to normalized free state!
         setSubscriptionTier('free');
         setExpiresAt(null);
         setSecondsRemaining(0);
@@ -190,10 +197,10 @@ export function App() {
           {/* Front-Screen Prominent Educational Compliance Disclaimer Banner */}
           <DisclaimerBanner />
 
-          {/* Main Landing Page HUD Interface (All showcase features fully expanded) */}
+          {/* Main Landing Page HUD Interface */}
           {activeTab === 'hud' && (
             <div className="space-y-12">
-              {/* 1. Hero Showcase: 3D AI Target Sphere & Audio Briefing Engine */}
+              {/* 1. Hero Showcase */}
               <section id="hud-hero">
                 <HudTargetSphere
                   subscriptionTier={subscriptionTier}
@@ -294,12 +301,14 @@ export function App() {
           currentTier={subscriptionTier}
         />
 
-        {/* User Authentication & Sign Up Modal */}
+        {/* User Authentication & Account Management Modal */}
         <AuthModal
           isOpen={isAuthModalOpen}
           onClose={() => setIsAuthModalOpen(false)}
           onAuthSuccess={handleAuthSuccess}
           initialMode={authModalMode}
+          currentUser={user}
+          onDeleteAccount={handleDeleteAccount}
         />
 
         {/* Clean Footer with Disclaimer */}

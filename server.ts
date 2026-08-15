@@ -10,7 +10,7 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const LEGAL_DISCLAIMER = 'For educational and informational purposes only. Not financial or investment advice. Always manage your risk responsibility.';
+const LEGAL_DISCLAIMER = 'For educational and informational purposes only. Not financial or investment advice. Always manage your risk responsibly.';
 
 // 55 High-Growth Assets across Wall Street, Global Crypto, and Indian NSE Equities
 const HIGH_GROWTH_ASSETS = [
@@ -580,7 +580,7 @@ Output a compliant probabilistic estimate:
   });
 
   // -------------------------------------------------------------
-  // ENDPOINT 7: Full Multimodal Bengali Vision Diagnostic
+  // ENDPOINT 7: Full Multimodal Vision Diagnostic
   // -------------------------------------------------------------
   app.post('/api/analyze-chart-image', async (req, res) => {
     try {
@@ -603,7 +603,7 @@ Output a compliant probabilistic estimate:
       try {
         const ai = getGeminiClient();
         const promptText = `
-You are "Trade Doctor AI" (ট্রেডিং চার্ট ও টেকনিক্যাল অ্যানালিসিস বিশেষজ্ঞ).
+You are "Trade Doctor AI" (Trading Chart & Technical Analysis Specialist).
 Analyze the attached candlestick / stock / crypto chart image with maximum accuracy.
 
 Context Provided:
@@ -618,7 +618,7 @@ Instructions:
 2. IDENTIFY ALL TRADING MISTAKES & DANGERS: Check if the user is buying at resistance (FOMO), shorting at support, ignoring bearish divergence, setting stop loss too tight or without buffer, over-leveraging, or trading counter-trend.
 3. PINPOINT DANGER ZONES & SAFE ZONES: Explain exactly where buying/selling is dangerous and where the safest entry zone is located.
 4. CALCULATE RECOMMENDATIONS: Provide exact price level estimations for Entry, Stop Loss, Take Profit Target 1, Take Profit Target 2, Risk/Reward Ratio, Maximum Safe Position Amount, and Recommended Leverage.
-5. EXPLAIN IN CLEAR, HELPFUL BENGALI (বাংলা ভাষায়): Provide a friendly, expert Bengali diagnostic verdict, explaining what mistake was made, why it is dangerous, and step-by-step how to correct it.
+5. EXPLAIN IN CLEAR, HELPFUL ENGLISH: Provide a friendly, expert English diagnostic verdict, explaining what mistake was made, why it is dangerous, and step-by-step how to correct it.
 `;
 
         const contents = [
@@ -645,7 +645,6 @@ Instructions:
                   description: 'One of: "DANGEROUS_MISTAKE", "HIGH_RISK_WARNING", "NEUTRAL_WAIT", "VALID_SETUP_BUY", "VALID_SETUP_SELL"',
                 },
                 overallScore: { type: Type.INTEGER, description: 'Trade setup health score 0-100' },
-                headlineBengali: { type: Type.STRING, description: 'Catchy 1-line Bengali verdict summary' },
                 headlineEnglish: { type: Type.STRING, description: '1-line English verdict summary' },
                 detectedPattern: {
                   type: Type.ARRAY,
@@ -676,17 +675,16 @@ Instructions:
                 suggestedMaxRiskAmount: { type: Type.STRING, description: 'Dollar risk recommendation based on capital' },
                 suggestedPositionSize: { type: Type.STRING, description: 'Recommended position size amount' },
                 recommendedLeverage: { type: Type.STRING, description: 'Recommended leverage limit (e.g. 2x - 3x spot)' },
-                bengaliSummary: { type: Type.STRING, description: 'Detailed, friendly Bengali explanation of the diagnosis and mistakes' },
+                englishSummary: { type: Type.STRING, description: 'Detailed, friendly English explanation of the diagnosis and mistakes' },
                 stepByStepCorrection: {
                   type: Type.ARRAY,
                   items: { type: Type.STRING },
-                  description: 'Step by step action plan in Bengali to fix the trade',
+                  description: 'Step by step action plan in English to fix the trade',
                 },
               },
               required: [
                 'verdict',
                 'overallScore',
-                'headlineBengali',
                 'headlineEnglish',
                 'detectedPattern',
                 'trendDirection',
@@ -701,7 +699,7 @@ Instructions:
                 'suggestedMaxRiskAmount',
                 'suggestedPositionSize',
                 'recommendedLeverage',
-                'bengaliSummary',
+                'englishSummary',
                 'stepByStepCorrection',
               ],
             },
@@ -717,26 +715,25 @@ Instructions:
         return res.json({
           verdict: 'DANGEROUS_MISTAKE',
           overallScore: 35,
-          headlineBengali: 'রেজিস্ট্যান্সের শীর্ষে FOMO বাই এন্ট্রি (মারাত্মক ভুল)',
           headlineEnglish: 'FOMO Buy Entry at Major Resistance Peak',
           detectedPattern: ['FOMO Green Candles', 'Resistance Peak Rejection'],
           trendDirection: 'Volatile Breakdown',
           mistakesFound: [
             {
-              title: 'রেজিস্ট্যান্স লাইনের নিচে বাই নেওয়া',
-              description: 'চার্ট অনুযায়ী দাম একটি গুরুত্বপূর্ণ রেজিস্ট্যান্স জোনে পৌঁছেছে। এখানে সেলারদের প্রেসার বেশি থাকে।',
+              title: 'Buying Right Under Resistance Line',
+              description: 'According to the chart, price has arrived at a major resistance zone where selling pressure is dominant.',
               severity: 'Critical',
               category: 'FOMO/Chasing',
             },
             {
-              title: 'স্টপ লস খুব টাইট দেওয়া',
-              description: 'বাজারের নরমাল ভোলাটিলিটিতেই স্টপ লস হিট হয়ে যাওয়ার সম্ভাবনা রয়েছে।',
+              title: 'Stop Loss Set Too Tight',
+              description: 'Normal market volatility is likely to trigger the stop loss prematurely.',
               severity: 'Moderate',
               category: 'Bad Stop Loss',
             },
           ],
-          dangerZoneDescription: 'রেজিস্ট্যান্সের ঠিক নিচের এলাকাটি চরম বিপদজনক জোন। এখান থেকে হঠাৎ প্রফিট বুকিং ডাম্পের ঝুঁকি প্রবল।',
-          safeZoneDescription: 'রেজিস্ট্যান্স ব্রেকআউট হয়ে সফল রিটেস্ট করলে অথবা নিচে সাপোর্টে পুলব্যাক দিলে নিরাপদ বাই এন্ট্রি পাওয়া যাবে।',
+          dangerZoneDescription: 'The zone immediately below resistance is an extreme danger area where sudden profit-taking dumps occur.',
+          safeZoneDescription: 'A safe buy entry is available after a successful resistance breakout and retest or a pullback to support.',
           suggestedEntryPrice: '$105.00 - $108.00 (Pullback Zone)',
           suggestedStopLoss: '$98.50',
           takeProfitTarget1: '$125.00',
@@ -745,12 +742,12 @@ Instructions:
           suggestedMaxRiskAmount: `$${((capitalAmount * riskTolerancePercent) / 100).toFixed(2)}`,
           suggestedPositionSize: `$${(((capitalAmount * riskTolerancePercent) / 100) / 0.065).toFixed(2)}`,
           recommendedLeverage: '1x - 2x Spot',
-          bengaliSummary: 'আপনি চার্টে টানা কয়েকটি সবুজ ক্যান্ডেল দেখে রেজিস্ট্যান্সের ঠিক মাথায় প্রবেশ করার পরিকল্পনা করছেন। এটি ট্রেডারদের সবচেয়ে কমন FOMO ভুল। এখান থেকে দাম হঠাৎ রিভার্স করলে বড় লস হতে পারে।',
+          englishSummary: 'You are planning to enter right at the top of resistance after seeing consecutive green candles. This is the most common FOMO mistake among traders. A sudden reversal from here could incur significant drawdowns.',
           stepByStepCorrection: [
-            '১. এখন তাড়াহুড়ো করে এন্ট্রি নেওয়া বন্ধ রাখুন।',
-            '২. প্রাইজকে রেজিস্ট্যান্স ভেঙে উপরে যেতে দিন অথবা নিচে সাপোর্টে ফিরে আসা পর্যন্ত অপেক্ষা করুন।',
-            '৩. সাপোর্টে বুলিশ রিভার্সাল ক্যান্ডেলস্টিক (যেমন Hammer) পেলে তবেই বাই নিন।',
-            '৪. প্রতি ট্রেডে ১-২% এর বেশি ঝুঁকি নেবেন না।',
+            '1. Avoid rushing into an entry at current levels.',
+            '2. Wait for price to break out above resistance or pull back down to support.',
+            '3. Enter long only after seeing a bullish reversal candlestick (such as a Hammer) at support.',
+            '4. Do not risk more than 1-2% of total capital per trade.',
           ],
           analyzedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         });
@@ -784,7 +781,7 @@ Instructions:
 
 Evaluate if this is a BUY, SELL, or HOLD signal.
 Determine Support and Resistance levels.
-Provide clear rationale in both Bengali (বাংলা) and English.`;
+Provide clear rationale in English.`;
 
         const response = await ai.models.generateContent({
           model: 'gemini-3.6-flash',
@@ -796,7 +793,6 @@ Provide clear rationale in both Bengali (বাংলা) and English.`;
               properties: {
                 signal: { type: Type.STRING, description: '"BUY", "SELL", or "HOLD"' },
                 confidence: { type: Type.STRING, description: '"High", "Medium", or "Low"' },
-                rationaleBengali: { type: Type.STRING },
                 rationaleEnglish: { type: Type.STRING },
                 supportLevel: { type: Type.NUMBER },
                 resistanceLevel: { type: Type.NUMBER },
@@ -809,7 +805,6 @@ Provide clear rationale in both Bengali (বাংলা) and English.`;
               required: [
                 'signal',
                 'confidence',
-                'rationaleBengali',
                 'rationaleEnglish',
                 'supportLevel',
                 'resistanceLevel',
@@ -831,7 +826,6 @@ Provide clear rationale in both Bengali (বাংলা) and English.`;
           priceChange24h,
           signal: parsedData.signal || 'HOLD',
           confidence: parsedData.confidence || 'Medium',
-          rationaleBengali: parsedData.rationaleBengali || 'আরএসআই ও মুভিং অ্যাভারেজ মেপে দেখা গেছে বাজার এখন নিরপেক্ষ অঞ্চলে রয়েছে।',
           rationaleEnglish: parsedData.rationaleEnglish || 'RSI and moving averages indicate neutral momentum.',
           supportLevel: parsedData.supportLevel || Number((latest.close * 0.95).toFixed(2)),
           resistanceLevel: parsedData.resistanceLevel || Number((latest.close * 1.05).toFixed(2)),
@@ -850,7 +844,6 @@ Provide clear rationale in both Bengali (বাংলা) and English.`;
           priceChange24h,
           signal: latest.rsi < 35 ? 'BUY' : latest.rsi > 70 ? 'SELL' : 'HOLD',
           confidence: 'Medium',
-          rationaleBengali: `RSI (${latest.rsi}) ও মুভিং অ্যাভারেজের ভিত্তিতে এটি বর্তমানে টেকনিক্যালি ${latest.rsi < 35 ? 'ওভারসোল্ড সাপোর্ট জোনে' : 'কনসোলিডেশন জোনে'} রয়েছে।`,
           rationaleEnglish: `RSI is currently at ${latest.rsi} indicating technical balance near moving average bounds.`,
           supportLevel: Number((latest.close * 0.95).toFixed(2)),
           resistanceLevel: Number((latest.close * 1.05).toFixed(2)),
@@ -898,15 +891,15 @@ Provide clear rationale in both Bengali (বাংলা) and English.`;
 
       const isRiskSafe = riskPercentPerTrade <= 3 && riskRewardRatio >= 1.5 && leverage <= 5;
 
-      const warningsBengali: string[] = [];
+      const warningsEnglish: string[] = [];
       if (riskPercentPerTrade > 3) {
-        warningsBengali.push(`⚠️ এক ট্রেডে অ্যাকাউন্ট মূলধনের ${riskPercentPerTrade}% ঝুঁকি নেওয়া অনেক বেশি! এটি আপনার অ্যাকাউন্ট খালি করার ঝুঁকি তৈরি করে (সর্বোচ্চ ১-৩% ঝুঁকি নিন)।`);
+        warningsEnglish.push(`⚠️ Risking ${riskPercentPerTrade}% of account capital in a single trade is too high! Aim for 1-3% maximum.`);
       }
       if (riskRewardRatio < 1.5) {
-        warningsBengali.push(`⚠️ রিস্ক-টু-রিওয়ার্ড রেশিও মাত্র ১:${riskRewardRatio}। পেশাদার ট্রেডাররা কমপক্ষে ১:২ রেশিও ছাড়া ট্রেডে ঢুকেন না।`);
+        warningsEnglish.push(`⚠️ Risk-to-Reward ratio is only 1:${riskRewardRatio}. Professional traders require at least a 1:2 ratio.`);
       }
       if (leverage > 5) {
-        warningsBengali.push(`⚠️ ${leverage}x লিভারেজ অত্যন্ত বিপদজনক! সামান্য বিপরীত মুভমেন্টেই পুরো ট্রেড লিকুইডেট বা মার্জিন কলে পড়তে পারে।`);
+        warningsEnglish.push(`⚠️ ${leverage}x leverage is dangerous! Slight adverse price swings can trigger margin calls or liquidation.`);
       }
 
       res.json({
@@ -916,11 +909,11 @@ Provide clear rationale in both Bengali (বাংলা) and English.`;
         potentialProfit: Number(potentialProfit.toFixed(2)),
         riskRewardRatio,
         isRiskSafe,
-        warningsBengali,
+        warningsEnglish,
         recommendations: [
-          `সর্বোচ্চ ঝুঁকি গ্রহণ করুন: $${dollarAmountAtRisk.toFixed(2)} (${riskPercentPerTrade}%)`,
-          `আপনার পজিশন সাইজ হওয়া উচিত maximum $${maxPositionSize.toFixed(2)} (অথবা ${(maxPositionSize / entryPrice).toFixed(4)} কয়েন/শেয়ার)`,
-          `স্টপ লস সবসময় টেকনিক্যাল সাপোর্ট/রেজিস্ট্যান্স লেভেলের কিছুটা বাইরে সেট করুন।`,
+          `Max risk amount: $${dollarAmountAtRisk.toFixed(2)} (${riskPercentPerTrade}%)`,
+          `Your position size should not exceed $${maxPositionSize.toFixed(2)} (${(maxPositionSize / entryPrice).toFixed(4)} coins/shares)`,
+          `Always place Stop Loss outside immediate technical noise.`,
         ],
       });
     } catch (err: any) {

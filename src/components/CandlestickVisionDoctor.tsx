@@ -16,9 +16,6 @@ import {
   Check,
   Printer,
   Info,
-  BookOpen,
-  ArrowUpRight,
-  ArrowDownRight,
   Compass,
 } from 'lucide-react';
 
@@ -770,7 +767,7 @@ POSITION SIZING:
                 Comprehensive AI Trade Doctor Diagnosis & Actionable Plan
               </h3>
               <p className="mt-3 text-xs sm:text-sm text-slate-700 leading-relaxed bg-slate-50 p-5 rounded-2xl border border-slate-200 font-medium">
-                {analysis.bengaliSummary || analysis.headlineEnglish}
+                {analysis.englishSummary || analysis.headlineEnglish}
               </p>
             </div>
 

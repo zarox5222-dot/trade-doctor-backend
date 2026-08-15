@@ -1,5 +1,5 @@
 import React from 'react';
-import { Stethoscope, Activity, Camera, LineChart, ShieldAlert, BookOpen, Sparkles, Crown, Globe, User, LogIn, LogOut, CheckCircle2 } from 'lucide-react';
+import { Stethoscope, Activity, Camera, LineChart, ShieldAlert, BookOpen, Sparkles, Crown, Globe, User, LogOut } from 'lucide-react';
 import { PRESET_CHARTS, PresetChart } from '../data/presetCharts';
 import { Language, SUPPORTED_LANGUAGES, TRANSLATIONS } from '../data/translations';
 
@@ -161,11 +161,11 @@ export const Header: React.FC<HeaderProps> = ({
                   setActiveTab('vision');
                 }}
                 className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 border border-slate-200 px-2.5 py-1.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs active:scale-95"
-                title={preset.descriptionBengali}
+                title={preset.descriptionEnglish}
               >
                 <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                 <span className="font-semibold text-[11px]">
-                  {language === 'bn' ? preset.titleBengali.split(' ')[0] + ' ' + (preset.titleBengali.split(' ')[1] || '') : preset.titleEnglish}
+                  {preset.titleEnglish}
                 </span>
               </button>
             ))}

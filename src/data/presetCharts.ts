@@ -2,9 +2,8 @@ import { MarketCategory, Timeframe } from '../types';
 
 export interface PresetChart {
   id: string;
-  titleBengali: string;
   titleEnglish: string;
-  descriptionBengali: string;
+  descriptionEnglish: string;
   marketCategory: MarketCategory;
   timeframe: Timeframe;
   userPlan: string;
@@ -16,7 +15,6 @@ export interface PresetChart {
 // Generate high quality inline SVG charts as Data URLs
 const generateChartSvgDataUrl = (type: 'fomo_top' | 'head_shoulders' | 'bull_flag' | 'double_bottom') => {
   let paths = '';
-  let labels = '';
 
   if (type === 'fomo_top') {
     paths = `
@@ -79,7 +77,7 @@ const generateChartSvgDataUrl = (type: 'fomo_top' | 'head_shoulders' | 'bull_fla
       <text x="320" y="220" fill="#ef4444" font-size="10" font-weight="bold">Breakdown Zone!</text>
     `;
   } else {
-    // Bull Flag / Double Bottom
+    // Double Bottom
     paths = `
       <!-- Double Bottom W pattern -->
       <polyline points="30,80 80,220 130,140 180,220 230,80 350,50" fill="none" stroke="#10b981" stroke-width="3" />
@@ -115,9 +113,8 @@ const generateChartSvgDataUrl = (type: 'fomo_top' | 'head_shoulders' | 'bull_fla
 export const PRESET_CHARTS: PresetChart[] = [
   {
     id: 'fomo_top_chase',
-    titleBengali: 'রেজিস্ট্যান্সের শীর্ষে FOMO বাই এন্ট্রি (মারাত্মক ভুল)',
     titleEnglish: 'FOMO Buy Entry at Major Resistance Top',
-    descriptionBengali: 'টানা ৪টি বিশাল সবুজ ক্যান্ডেল দেখে রেজিস্ট্যান্স লেভেলের ঠিক মাথায় ট্রেডার বাই নিয়ে ফেলেছে। খুব শীঘ্রই রিভার্সাল ডাম্পের ঝুঁকি।',
+    descriptionEnglish: 'Trader jumped in after 4 massive green candles right into resistance. High risk of immediate reversal and dump.',
     marketCategory: 'Crypto',
     timeframe: '15m',
     userPlan: 'I saw 4 big green candles pumping hard, so I entered a 10x Long position near $150 thinking it would break out to $200. My stop loss is at $148.',
@@ -126,9 +123,8 @@ export const PRESET_CHARTS: PresetChart[] = [
   },
   {
     id: 'head_shoulders_breakdown',
-    titleBengali: 'হেড অ্যান্ড শোল্ডার নেকলাইন ব্রেকডাউন (বিয়ারিশ)',
     titleEnglish: 'Head & Shoulders Neckline Breakdown',
-    descriptionBengali: 'চার্টে স্পষ্ট Head and Shoulders প্যাটার্ন তৈরি হয়েছে এবং নেকলাইন সাপোর্ট ($240) ভাঙার মুখে। ভুল করে বাই করলে বড় লস হতে পারে।',
+    descriptionEnglish: 'Clear Head and Shoulders pattern formed with price testing neckline support ($240). Buying here risks severe downside losses.',
     marketCategory: 'US Stocks',
     timeframe: '1h',
     userPlan: 'Price dropped to $240. I want to buy the dip expecting it to rebound to $280.',
@@ -137,9 +133,8 @@ export const PRESET_CHARTS: PresetChart[] = [
   },
   {
     id: 'double_bottom_safe',
-    titleBengali: 'ডাবল বটম রিভার্সাল (নিরাপদ বাই সেটআপ)',
     titleEnglish: 'Double Bottom (W Pattern) Reversal Setup',
-    descriptionBengali: 'মূল্য $85 লেভেলে দুইবার সাপোর্ট নিয়ে সুন্দর W প্যাটার্ন তৈরি করেছে। $105 নেকলাইন পার হলে টেকনিক্যালি নিরাপদ বাই এন্ট্রি পাওয়া যায়।',
+    descriptionEnglish: 'Price touched $85 support twice creating a clean W pattern. Confirming above $105 neckline offers a safe high-probability buy entry.',
     marketCategory: 'Crypto',
     timeframe: '4h',
     userPlan: 'I am planning to buy at $106 after neckline confirmation with stop loss at $95.',

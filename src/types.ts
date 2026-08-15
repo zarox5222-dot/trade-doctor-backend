@@ -28,7 +28,6 @@ export interface MistakePoint {
 export interface ChartVisionAnalysis {
   verdict: TradeVerdict;
   overallScore: number; // 0 to 100 health score of the trade setup
-  headlineBengali: string;
   headlineEnglish: string;
   detectedPattern: string[];
   trendDirection: 'Bullish' | 'Bearish' | 'Sideways / Consolidation' | 'Volatile Breakdown';
@@ -50,7 +49,7 @@ export interface ChartVisionAnalysis {
   suggestedPositionSize: string;
   recommendedLeverage: string;
 
-  bengaliSummary: string;
+  englishSummary: string;
   stepByStepCorrection: string[];
   analyzedAt: string;
 }
@@ -77,7 +76,6 @@ export interface TickerAnalysisResult {
   priceChange24h: number;
   signal: 'BUY' | 'SELL' | 'HOLD';
   confidence: 'High' | 'Medium' | 'Low';
-  rationaleBengali: string;
   rationaleEnglish: string;
   supportLevel: number;
   resistanceLevel: number;
@@ -107,7 +105,7 @@ export interface TradeRiskDiagnosis {
   potentialProfit: number;
   riskRewardRatio: number;
   isRiskSafe: boolean;
-  warningsBengali: string[];
+  warningsEnglish: string[];
   recommendations: string[];
 }
 
